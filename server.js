@@ -2,53 +2,63 @@ const express = require("express");
 const mongoose = require("mongoose");
 const qr = require("qrcode");
 const path = require("path");
+const crypto = require("crypto");
 const QRModel = require("./models/QRModel");
 
 const app = express();
 const PORT = 3000;
-const DB_NAME = "qrDB";  // Ensure correct case-sensitive database name
+const DB_NAME = "qrDB";  
 
 // Middleware
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, "public")));
 app.set("view engine", "ejs");
 
-// MongoDB Connection
+// Connect to MongoDB
 mongoose.connect(`mongodb://127.0.0.1:27017/${DB_NAME}`)
     .then(() => console.log("✅ MongoDB Connected"))
     .catch(err => console.error("❌ MongoDB Connection Error:", err));
 
-// Routes
+// Home Page (Form to generate QR Code)
 app.get("/", (req, res) => {
     res.render("index", { qrCode: null, error: null });
 });
 
-// Generate QR Code and Save to MongoDB
-app.post("/generate", async (req, res) => {
-    const { text } = req.body;
+// Generate QR Code & Save to MongoDB
+app.post('/generate', async (req, res) => {
+    const { rollNo, name, yearSemester, department, section } = req.body;
 
-    if (!text) {
-        return res.render("index", { qrCode: null, error: "Text is required!" });
+    if (!rollNo || !name || !yearSemester || !department || !section) {
+        return res.render("index", { qrCode: null, error: "All fields are required!" });
     }
+
+    // Unique hash for the user
+    const userHash = crypto.createHash('sha256')
+        .update(`${rollNo}-${name}-${yearSemester}-${department}-${section}`)
+        .digest('hex');
 
     try {
-        const qrImage = await qr.toDataURL(text);
+        let existingQR = await QRModel.findOne({ userHash });
 
-        // Save to MongoDB (Avoid duplicates)
-        await QRModel.findOneAndUpdate({ text }, { text }, { upsert: true });
+        if (existingQR) {
+            return res.render("index", { qrCode: existingQR.qrCodeUrl, error: null });
+        }
 
-        res.render("index", { qrCode: qrImage, error: null });
-    } catch (error) {
-        console.error(error);
-        res.render("index", { qrCode: null, error: "Error generating QR code." });
+        // Generate QR Code
+        const qrData = `Roll No: ${rollNo}\nName: ${name}\nYear & Semester: ${yearSemester}\nDepartment: ${department}\nSection: ${section}`;
+        const qrCodeUrl = await qr.toDataURL(qrData);
+
+        // Save QR Code in MongoDB
+        await QRModel.create({ userHash, qrCodeUrl });
+
+        res.render("index", { qrCode: qrCodeUrl, error: null });
+    } catch (err) {
+        console.error(err);
+        res.render("index", { qrCode: null, error: "Error generating QR Code!" });
     }
 });
 
-app.get('/scan', (req, res) => {
-    res.render('scan'); // This will render views/scan.ejs
-});
-
-// List QR Codes from Database
+// List all QR Codes
 app.get("/list", async (req, res) => {
     try {
         const qrList = await QRModel.find();
@@ -57,6 +67,11 @@ app.get("/list", async (req, res) => {
         console.error(error);
         res.render("list", { qrList: [], error: "Error fetching QR codes." });
     }
+});
+
+// Scan QR Page
+app.get('/scan', (req, res) => {
+    res.render('scan');
 });
 
 // Start Server
