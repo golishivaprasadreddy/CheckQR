@@ -1,1 +1,2 @@
-CheckQR
+CheckQR. 
+A attendance QR solution
