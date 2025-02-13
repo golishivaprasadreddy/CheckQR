@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Saved QR Codes</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <h1>Saved QR Codes</h1>
+
+    <% if (qrList.length === 0) { %>
+        <p>No QR codes found.</p>
+    <% } else { %>
+        <ul>
+            <% qrList.forEach(qr => { %>
+                <li><%= qr.text %></li>
+            <% }); %>
+        </ul>
+    <% } %>
+
+    <br><br>
+    <a href="/">Generate New QR Code</a>
+</body>
+</html>
