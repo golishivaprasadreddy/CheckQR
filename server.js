@@ -7,7 +7,8 @@ const QRModel = require("./models/QRModel");
 require("dotenv").config();
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
+const MONGO_URI = process.env.MONGO_URI
 const DB_NAME = "qrDB";  
 
 // Middleware
@@ -16,7 +17,7 @@ app.use(express.static(path.join(__dirname, "public")));
 app.set("view engine", "ejs");
 
 // Connect to MongoDB
-mongoose.connect(`mongodb://127.0.0.1:27017/${DB_NAME}`)
+mongoose.connect(``)
     .then(() => console.log("✅ MongoDB Connected"))
     .catch(err => console.error("❌ MongoDB Connection Error:", err));
 
