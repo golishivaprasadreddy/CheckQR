@@ -9,7 +9,7 @@ require("dotenv").config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 const MONGO_URI = process.env.MONGO_URI
-const DB_NAME = "qrDB";  
+const DB_NAME = process.env.DB_NAME
 
 // Middleware
 app.use(express.urlencoded({ extended: true }));
