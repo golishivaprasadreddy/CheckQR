@@ -4,6 +4,7 @@ const qr = require("qrcode");
 const path = require("path");
 const crypto = require("crypto");
 const QRModel = require("./models/QRModel");
+require("dotenv").config();
 
 const app = express();
 const PORT = 3000;
