@@ -10,6 +10,8 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const MONGO_URI = process.env.MONGO_URI
 const DB_NAME = process.env.DB_NAME
+console.log("MONGO_URI:", process.env.MONGO_URI);
+
 
 // Middleware
 app.use(express.urlencoded({ extended: true }));
