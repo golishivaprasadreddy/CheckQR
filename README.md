@@ -58,11 +58,19 @@ npm start  or npm run dev
 
 **Usage**
 
+User Authentication: Users must sign up and log in to access the system securely.
+
 Generate a QR Code: Enter user details to generate a unique QR code.
 
-Scan QR Code: Use a mobile or webcam scanner to mark attendance.
-
-View Reports: Admins can access attendance records and analytics.
+Scan QR Code: Authenticated users can scan QR codes to mark attendance.
 
 
+**Authentication with JWT**
 
+Signup & Login: Users must create an account and log in to receive a JWT token.
+
+Token Storage: The token is stored in cookies and used for secure authentication.
+
+Protected Routes: QR scanning and attendance logging require a valid JWT token.
+
+This ensures that only authorized users can scan QR codes and access attendance data securely.
