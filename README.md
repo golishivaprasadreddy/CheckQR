@@ -19,6 +19,7 @@ QR-Based Attendance Automation is a smart and efficient system designed to repla
 **Export Data:** Download attendance logs in PDF / Excel format.
 
 **Mobile & Web Compatibility:** Responsive design for easy access.
+**JWT Authentication:** Secure access to QR scanning and attendance marking
 
 **Installation**
 
