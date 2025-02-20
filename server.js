@@ -8,12 +8,14 @@ const crypto = require("crypto");
 const qr = require("qrcode");
 const QRModel = require("./models/QRModel");
 const UserModel = require("./models/userModel");
-require("dotenv").config();
+require("dotenv").config();`
+`
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const MONGO_URI = process.env.MONGO_URI;
 const JWT_SECRET = process.env.JWT_SECRET || "supersecretkey";
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Middleware
 app.use(express.urlencoded({ extended: true }));
@@ -46,6 +48,9 @@ app.get("/", (req, res) => {
     res.render("index", { qrCode: null, error: null });
 });
 
+app.get('/ads.txt', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'ads.txt'));
+});
 // ✅ Signup Route
 app.get("/signup", (req, res) => res.render("signup"));
 
@@ -64,6 +69,7 @@ app.post("/signup", async (req, res) => {
 
 // ✅ Signin Route
 app.get("/signin", (req, res) => res.render("signin"));
+
 
 app.post("/signin", async (req, res) => {
     const { email, password } = req.body;
