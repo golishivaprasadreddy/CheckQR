@@ -67,6 +67,7 @@ Ensure you have the following installed:
 ## Authentication with JWT
 
 - **Signup & Login:** Users must create an account and log in to receive a JWT token.
+
 - **Token Storage:** The token is stored in cookies and used for secure authentication.
 - **Protected Routes:** QR scanning and attendance logging require a valid JWT token.
 
