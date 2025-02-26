@@ -63,7 +63,7 @@ Ensure you have the following installed:
 1. **User Authentication:** Users must sign up and log in to access the system securely.
 2. **Generate a QR Code:** Enter user details to generate a unique QR code.
 3. **Scan QR Code:** Authenticated users can scan QR codes to mark attendance.
-
+ 
 ## Authentication with JWT
 
 - **Signup & Login:** Users must create an account and log in to receive a JWT token.
