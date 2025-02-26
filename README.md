@@ -11,11 +11,17 @@ QR-Based Attendance Automation is a smart and efficient system designed to repla
 ## Features
 
 - **QR Code Generation:** Generate unique QR codes for individuals.
+
 - **QR Code Scanning:** Scan QR codes to mark attendance.
+
 - **Real-Time Logging:** Attendance records are updated instantly.
+
 - **Dashboard Analytics:** View attendance reports and insights.
+
 - **Export Data:** Download attendance logs in PDF / Excel format.
+
 - **Mobile & Web Compatibility:** Responsive design for easy access.
+
 - **JWT Authentication:** Secure access to QR scanning and attendance marking.
 
 ## Installation
