@@ -65,17 +65,16 @@
 
         function onScanSuccess(decodedText, decodedResult) {
             let sound = document.getElementById("scanSound");
-            sound.currentTime = 0; // Reset to start
             sound.play();
+            setTimeout(() => sound.pause(), 50); // Stop after 50ms
 
-            let normalizedText = decodedText.trim();
-            if (scannedData.has(normalizedText)) {
+            if (scannedData.has(decodedText)) {
                 console.warn("Duplicate scan detected, ignoring...");
                 return;
             }
-            scannedData.add(normalizedText);
+            scannedData.add(decodedText);
 
-            let data = parseScannedData(normalizedText);
+            let data = parseScannedData(decodedText);
             if (data) {
                 document.getElementById("result-container").classList.remove("hidden");
                 let tableBody = document.getElementById("result-table");
@@ -87,10 +86,12 @@
                     <td class="border border-gray-300 px-4 py-2">${data.department}</td>
                     <td class="border border-gray-300 px-4 py-2">${data.section}</td>
                     <td class="border border-gray-300 px-4 py-2">${data.college}</td>
-                    <td class="border border-gray-300 px-4 py-2">${data.whatsapp}</td>
+                     <td class="border border-gray-300 px-4 py-2">${data.whatsapp}</td>
                     <td class="border border-gray-300 px-4 py-2">${data.email}</td>
                 </tr>`;
                 tableBody.insertAdjacentHTML("afterbegin", newRow);
+
+                // tableBody.insertAdjacentHTML("beforeend", newRow);
             }
         }
 
@@ -105,15 +106,15 @@
             lines.forEach(line => {
                 let parts = line.split(": ");
                 if (parts.length === 2) {
-                    let key = parts[0].trim().toLowerCase();
+                    let key = parts[0].trim();
                     let value = parts[1].trim();
 
-                    if (key.includes("roll no")) data.rollNo = value;
-                    else if (key.includes("name")) data.name = value;
-                    else if (key.includes("year")) data.yearSemester = value;
-                    else if (key.includes("department")) data.department = value;
-                    else if (key.includes("section")) data.section = value;
-                    else if (key.includes("college")) data.college = value;
+                    if (key === "Roll No") data.rollNo = value;
+                    else if (key === "Name") data.name = value;
+                    else if (key === "Year & Semester") data.yearSemester = value;
+                    else if (key === "Department") data.department = value;
+                    else if (key === "Section") data.section = value;
+                    else if (key === "College") data.college = value;
                     else if (key.includes("whatsapp")) data.whatsapp = value;
                     else if (key.includes("email")) data.email = value;
                 }
@@ -127,7 +128,7 @@
 
         function getCurrentDate() {
             let now = new Date();
-            return now.toLocaleString().replace(/[^\w]/g, "_");
+            return now.toLocaleDateString() + " " + now.toLocaleTimeString();
         }
 
         function downloadExcel() {
@@ -137,7 +138,16 @@
             XLSX.utils.book_append_sheet(wb, ws, "Scanned Data");
 
             let date = getCurrentDate();
-            XLSX.writeFile(wb, `Scanned_Details_${date}.xlsx`);
+
+            // Add footer in Excel
+            let footer = [
+                [],
+                ["Developed by GOLI SHIVAPRASAD REDDY ❤️"],
+                ["Date: " + date]
+            ];
+            XLSX.utils.sheet_add_aoa(ws, footer, { origin: -1 });
+
+            XLSX.writeFile(wb, `Scanned_Details_by_CheckQR_${date.replace(/[:/ ]/g, "_")}.xlsx`);
         }
 
         function downloadPDF() {
@@ -150,12 +160,30 @@
             let docDefinition = {
                 content: [
                     { text: "Scanned Details", style: "header" },
+                    
                     { text: "Date: " + date, style: "subheader" },
-                    { table: { headerRows: 1, body: rows } }
-                ]
+                    {
+                        table: {
+                            headerRows: 1,
+                            body: rows
+                        }
+                    }
+                ],
+                footer: function(currentPage, pageCount) {
+                    return {
+                        text: `Developed by GOLI SHIVAPRASAD REDDY | Page ${currentPage} of ${pageCount}`,
+                        alignment: 'center',
+                        margin: [0, 10, 0, 0],
+                        fontSize: 10
+                    };
+                },
+                styles: {
+                    header: { fontSize: 18, bold: true, margin: [0, 0, 0, 10] },
+                    subheader: { fontSize: 14, italics: true, margin: [0, 0, 0, 10] }
+                }
             };
 
-            pdfMake.createPdf(docDefinition).download(`Scanned_Details_${date}.pdf`);
+            pdfMake.createPdf(docDefinition).download(`Scanned_Details_by_CheckQR_${date.replace(/[:/ ]/g, "_")}.pdf`);
         }
     </script>
 
