@@ -100,28 +100,29 @@
         }
 
         function parseScannedData(text) {
-            let lines = text.split("\n");
-            let data = {};
+    let lines = text.split("\n");
+    let data = {};
 
-            lines.forEach(line => {
-                let parts = line.split(": ");
-                if (parts.length === 2) {
-                    let key = parts[0].trim();
-                    let value = parts[1].trim();
+    lines.forEach(line => {
+        let parts = line.split(": ");
+        if (parts.length === 2) {
+            let key = parts[0].trim().toLowerCase(); // Convert key to lowercase for consistency
+            let value = parts[1].trim();
 
-                    if (key === "Roll No") data.rollNo = value;
-                    else if (key === "Name") data.name = value;
-                    else if (key === "Year & Semester") data.yearSemester = value;
-                    else if (key === "Department") data.department = value;
-                    else if (key === "Section") data.section = value;
-                    else if (key === "College") data.college = value;
-                    else if (key.includes("whatsapp")) data.whatsapp = value;
-                    else if (key.includes("email")) data.email = value;
-                }
-            });
-
-            return data.rollNo ? data : null;
+            if (key.includes("roll no")) data.rollNo = value;
+            else if (key.includes("name")) data.name = value;
+            else if (key.includes("year")) data.yearSemester = value;
+            else if (key.includes("department")) data.department = value;
+            else if (key.includes("section")) data.section = value;
+            else if (key.includes("college")) data.college = value;
+            else if (key.includes("whatsapp") || key.includes("phone")) data.whatsapp = value;
+            else if (key.includes("email") || key.includes("mail")) data.email = value;
         }
+    });
+
+    return data.rollNo ? data : null;
+}
+
 
         let scanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
         scanner.render(onScanSuccess, onScanFailure);
