@@ -96,18 +96,23 @@ app.get("/logout", (req, res) => {
 
 // ✅ QR Code Generation
 app.post("/generate", async (req, res) => {
-    const { rollNo, name, college, yearSemester, department, section } = req.body;
-    if (!rollNo || !name || !college || !yearSemester || !department || !section) {
+    const { rollNo, name, college, yearSemester, department, section, whatsapp, email } = req.body;
+    
+    if (!rollNo || !name || !college || !yearSemester || !department || !section || !whatsapp || !email) {
         return res.render("index", { qrCode: null, error: "All fields are required!" });
     }
+    
     try {
-        const userHash = crypto.createHash("sha256").update(`${rollNo}-${name}-${college}-${yearSemester}-${department}-${section}`).digest("hex");
+        const userHash = crypto.createHash("sha256").update(`${rollNo}-${name}-${college}-${yearSemester}-${department}-${section}-${whatsapp}-${email}`).digest("hex");
+        
         let existingQR = await QRModel.findOne({ userHash });
         if (existingQR) {
             return res.render("index", { qrCode: existingQR.qrCodeUrl, error: null });
         }
-        const qrData = `Roll No: ${rollNo}\nName: ${name}\nCollege: ${college}\nYear & Semester: ${yearSemester}\nDepartment: ${department}\nSection: ${section}`;
+        
+        const qrData = `Roll No: ${rollNo}\nName: ${name}\nCollege: ${college}\nYear & Semester: ${yearSemester}\nDepartment: ${department}\nSection: ${section}\nWhatsApp: ${whatsapp}\nEmail: ${email}`;
         const qrCodeUrl = await qr.toDataURL(qrData);
+        
         await QRModel.create({ userHash, qrCodeUrl });
         res.render("index", { qrCode: qrCodeUrl, error: null });
     } catch (err) {
@@ -115,6 +120,7 @@ app.post("/generate", async (req, res) => {
         res.render("index", { qrCode: null, error: "Error generating QR Code!" });
     }
 });
+
 
 
 // ✅ List all QR Codes
