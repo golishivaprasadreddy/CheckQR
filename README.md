@@ -23,6 +23,7 @@ QR-Based Attendance Automation is a smart and efficient system designed to repla
 - **Mobile & Web Compatibility:** Responsive design for easy access.
 
 - **JWT Authentication:** Secure access to QR scanning and attendance marking.
+- - **Scanned QR Count:** Track the number of scanned QR codes.
 
 ## Installation
 
