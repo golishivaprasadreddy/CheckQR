@@ -166,12 +166,17 @@
             let docDefinition = {
                 content: [
                     { text: "Scanned Details", style: "header" },
-                    
                     { text: "Date: " + date, style: "subheader" },
                     {
                         table: {
                             headerRows: 1,
+                            widths: ['auto', 'auto', 'auto', 'auto', 'auto', 'auto', 'auto', 'auto'],
                             body: rows
+                        },
+                        layout: {
+                            fillColor: function (rowIndex, node, columnIndex) {
+                                return (rowIndex === 0) ? '#CCCCCC' : null;
+                            }
                         }
                     }
                 ],
@@ -186,7 +191,9 @@
                 styles: {
                     header: { fontSize: 18, bold: true, margin: [0, 0, 0, 10] },
                     subheader: { fontSize: 14, italics: true, margin: [0, 0, 0, 10] }
-                }
+                },
+                pageOrientation: 'landscape',
+                pageSize: 'A4'
             };
 
             pdfMake.createPdf(docDefinition).download(`Scanned_Details_by_CheckQR_${date.replace(/[:/ ]/g, "_")}.pdf`);
