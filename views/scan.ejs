@@ -33,6 +33,7 @@
                         <th class="border border-gray-300 px-4 py-2">Year & Semester</th>
                         <th class="border border-gray-300 px-4 py-2">Department</th>
                         <th class="border border-gray-300 px-4 py-2">Section</th>
+                        <th class="border border-gray-300 px-4 py-2">College</th>
                     </tr>
                 </thead>
                 <tbody id="result-table" class="bg-gray-50 text-black"></tbody>
@@ -82,9 +83,11 @@
                     <td class="border border-gray-300 px-4 py-2">${data.yearSemester}</td>
                     <td class="border border-gray-300 px-4 py-2">${data.department}</td>
                     <td class="border border-gray-300 px-4 py-2">${data.section}</td>
+                    <td class="border border-gray-300 px-4 py-2">${data.college}</td>
                 </tr>`;
+                tableBody.insertAdjacentHTML("afterbegin", newRow);
 
-                tableBody.insertAdjacentHTML("beforeend", newRow);
+                // tableBody.insertAdjacentHTML("beforeend", newRow);
             }
         }
 
@@ -107,6 +110,7 @@
                     else if (key === "Year & Semester") data.yearSemester = value;
                     else if (key === "Department") data.department = value;
                     else if (key === "Section") data.section = value;
+                    else if (key === "College") data.college = value;
                 }
             });
 
