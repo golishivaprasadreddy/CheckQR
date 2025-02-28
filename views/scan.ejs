@@ -23,7 +23,10 @@
 
         <!-- Scanned Data Table -->
         <div id="result-container" class="hidden mt-6">
-            <h2 class="text-xl font-semibold text-gray-700 mb-3">Scanned Details</h2>
+            <div class="flex justify-between items-center mb-3">
+                <h2 class="text-xl font-semibold text-gray-700">Scanned Details</h2>
+                <span id="scan-count" class="text-lg font-semibold text-gray-700">Scanned: 0</span>
+            </div>
             <div class="overflow-x-auto">
                 <table id="scanned-table" class="overflow-x-auto border-collapse border border-gray-300 shadow-sm">
                 <thead class="bg-purple-500 text-white">
@@ -62,6 +65,7 @@
 
     <script>
         let scannedData = new Set(); // To prevent duplicate entries
+        let scanCount = 0; // Count variable
 
         function onScanSuccess(decodedText, decodedResult) {
             let sound = document.getElementById("scanSound");
@@ -86,12 +90,14 @@
                     <td class="border border-gray-300 px-4 py-2">${data.department}</td>
                     <td class="border border-gray-300 px-4 py-2">${data.section}</td>
                     <td class="border border-gray-300 px-4 py-2">${data.college}</td>
-                     <td class="border border-gray-300 px-4 py-2">${data.whatsapp}</td>
+                    <td class="border border-gray-300 px-4 py-2">${data.whatsapp}</td>
                     <td class="border border-gray-300 px-4 py-2">${data.email}</td>
                 </tr>`;
                 tableBody.insertAdjacentHTML("afterbegin", newRow);
 
-                // tableBody.insertAdjacentHTML("beforeend", newRow);
+                // Update scan count
+                scanCount++;
+                document.getElementById("scan-count").innerText = `Scanned: ${scanCount}`;
             }
         }
 
@@ -100,29 +106,28 @@
         }
 
         function parseScannedData(text) {
-    let lines = text.split("\n");
-    let data = {};
+            let lines = text.split("\n");
+            let data = {};
 
-    lines.forEach(line => {
-        let parts = line.split(": ");
-        if (parts.length === 2) {
-            let key = parts[0].trim().toLowerCase(); // Convert key to lowercase for consistency
-            let value = parts[1].trim();
+            lines.forEach(line => {
+                let parts = line.split(": ");
+                if (parts.length === 2) {
+                    let key = parts[0].trim().toLowerCase(); // Convert key to lowercase for consistency
+                    let value = parts[1].trim();
 
-            if (key.includes("roll no")) data.rollNo = value;
-            else if (key.includes("name")) data.name = value;
-            else if (key.includes("year")) data.yearSemester = value;
-            else if (key.includes("department")) data.department = value;
-            else if (key.includes("section")) data.section = value;
-            else if (key.includes("college")) data.college = value;
-            else if (key.includes("whatsapp") || key.includes("phone")) data.whatsapp = value;
-            else if (key.includes("email") || key.includes("mail")) data.email = value;
+                    if (key.includes("roll no")) data.rollNo = value;
+                    else if (key.includes("name")) data.name = value;
+                    else if (key.includes("year")) data.yearSemester = value;
+                    else if (key.includes("department")) data.department = value;
+                    else if (key.includes("section")) data.section = value;
+                    else if (key.includes("college")) data.college = value;
+                    else if (key.includes("whatsapp") || key.includes("phone")) data.whatsapp = value;
+                    else if (key.includes("email") || key.includes("mail")) data.email = value;
+                }
+            });
+
+            return data.rollNo ? data : null;
         }
-    });
-
-    return data.rollNo ? data : null;
-}
-
 
         let scanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
         scanner.render(onScanSuccess, onScanFailure);
