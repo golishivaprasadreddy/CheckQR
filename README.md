@@ -65,12 +65,12 @@ Ensure you have the following installed:
     ```sh
     npm start  # or npm run dev
     ```
-
 ## Usage
 
 1. **User Authentication:** Users must sign up and log in to access the system securely.
 2. **Generate a QR Code:** Enter user details to generate a unique QR code.
 3. **Scan QR Code:** Authenticated users can scan QR codes to mark attendance.
+4. **Scan Count:** Track the number of QR codes scanned for each user.
  
 ## Authentication with JWT
 
