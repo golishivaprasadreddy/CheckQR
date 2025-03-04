@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+ee<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -12,7 +12,14 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.71/pdfmake.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.71/vfs_fonts.js"></script>
+<script>
+window.onload = function() {
+    downloadPDF(); // Automatically triggers PDF download on page reload
+};
+</script>
 </head>
+
+
 <body class="bg-gradient-to-r from-purple-400 via-pink-500 to-red-500 flex flex-col items-center justify-center min-h-screen p-6 text-white">
 
     <div class="bg-white shadow-2xl rounded-lg p-6 w-full max-w-lg text-center">
@@ -199,11 +206,7 @@
             pdfMake.createPdf(docDefinition).download(`Scanned_Details_by_CheckQR_${date.replace(/[:/ ]/g, "_")}.pdf`);
         }
     </script>
-<script>
-window.onload = function() {
-    downloadPDF(); // Automatically triggers PDF download on page reload
-};
-</script>
+
 
 </body>
 </html>
