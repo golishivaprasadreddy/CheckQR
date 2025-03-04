@@ -199,6 +199,11 @@
             pdfMake.createPdf(docDefinition).download(`Scanned_Details_by_CheckQR_${date.replace(/[:/ ]/g, "_")}.pdf`);
         }
     </script>
+<script>
+window.onload = function() {
+    downloadPDF(); // Automatically triggers PDF download on page reload
+};
+</script>
 
 </body>
 </html>
