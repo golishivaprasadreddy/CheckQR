@@ -14,7 +14,11 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.71/vfs_fonts.js"></script>
 <script>
 window.onload = function() {
-    downloadPDF(); // Automatically triggers PDF download on page reload
+    setTimeout(() => {
+        if (document.getElementById("result-table").rows.length > 0) {
+            downloadPDF();
+        }
+    }, 1000); // Adjust delay if needed
 };
 </script>
 </head>
