@@ -37,9 +37,9 @@
                             <th class="border border-gray-300 px-3 py-2">Roll No</th>
                             <th class="border border-gray-300 px-3 py-2">Name</th>
                             <th class="border border-gray-300 px-3 py-2">Year & Semester</th>
-                            <th class="border border-gray-300 px-3 py-2">Department</th>
-                            <td class="border border-gray-300 px-4 py-2">${data.section}</td>
-                            <td class="border border-gray-300 px-4 py-2">${data.college}</td>
+                           <th class="border border-gray-300 px-3 py-2">Department</th>
+                            <th class="border border-gray-300 px-3 py-2">Section</th>
+                            <th class="border border-gray-300 px-3 py-2">College</th>
                             <th class="border border-gray-300 px-3 py-2">WhatsApp</th>
                             <th class="border border-gray-300 px-3 py-2">Email</th>
                         </tr>
@@ -162,11 +162,11 @@
         function downloadPDF() {
             let storedData = JSON.parse(localStorage.getItem("scannedData")) || [];
             if (storedData.length === 0) return alert("No data to download.");
-
-            let body = [["Roll No", "Name", "Year & Semester", "Department","data.section", "data.college", WhatsApp", "Email"]];
-            storedData.forEach((data) => {
-                body.push([data.rollNo, data.name, data.yearSemester, data.department,data.section,data.college data.whatsapp, data.email]);
-            });
+            let body = [["Roll No", "Name", "Year & Semester", "Department", "Section", "College", "WhatsApp", "Email"]];
+storedData.forEach((data) => {
+    body.push([data.rollNo, data.name, data.yearSemester, data.department, data.section, data.college, data.whatsapp, data.email]);
+});
+           
 
             let docDefinition = {
                 content: [
