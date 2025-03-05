@@ -168,14 +168,15 @@ storedData.forEach((data) => {
 });
            
 
-            let docDefinition = {
-                content: [
-                    { text: "Scanned Data", style: "header" },
-                    { table: { headerRows: 1, body } }
-                ],
-                footer: (currentPage, pageCount) => ({ text: `Page ${currentPage} of ${pageCount}`, alignment: 'center' }),
-                styles: { header: { fontSize: 18, bold: true, margin: [0, 0, 0, 10] } }
-            };
+             let docDefinition = {
+        pageOrientation: "landscape", // Set page orientation to landscape
+        content: [
+            { text: "Scanned Data", style: "header" },
+            { table: { headerRows: 1, body } }
+        ],
+        footer: (currentPage, pageCount) => ({ text: `Page ${currentPage} of ${pageCount}`, alignment: 'center' }),
+        styles: { header: { fontSize: 18, bold: true, margin: [0, 0, 0, 10] } }
+    };
 
             pdfMake.createPdf(docDefinition).download("Scanned_Details.pdf");
         }
