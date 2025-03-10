@@ -1,13 +1,11 @@
 
 
-# CheckQR
-
+# CheckQR 
 A QR-Based Attendance Automation
 
 ## Overview
 
-QR-Based Attendance Automation is a smart and efficient system designed to replace traditional paper-based attendance tracking with a QR code-based solution. This system enables users to generate unique QR codes for individuals, scan these codes to mark attendance, and manage attendance records efficiently.
-
+QR-Based Attendance Automation is an advanced and efficient system designed to replace traditional paper-based attendance tracking with a QR code-based solution. This system allows users to generate unique QR codes for individuals, scan these codes to mark attendance, and manage attendance records efficiently.
 ## Features
 
 - **QR Code Generation:** Generate unique QR codes for individuals.
