@@ -24,6 +24,9 @@ QR-Based Attendance Automation is an advanced and efficient system designed to r
   
 - **Scanned QR Count:** Track the number of scanned QR codes.
 
+-**Future Add ons :**   Bluk data upload to generate qr at a time and can be added qr code only by just roll no
+
+
 ## Installation
 
 ### Prerequisites
