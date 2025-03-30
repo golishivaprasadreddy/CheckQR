@@ -6,74 +6,104 @@ const cookieParser = require("cookie-parser");
 const path = require("path");
 const crypto = require("crypto");
 const qr = require("qrcode");
+const multer = require("multer");
+const xlsx = require("xlsx");
+const axios = require("axios");
+const dotenv = require("dotenv");
+dotenv.config();
+
 const QRModel = require("./models/QRModel");
-const UserModel = require("./models/userModel");
-require("dotenv").config();`
-`
+const UserModel = require("./models/UserModel");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const MONGO_URI = process.env.MONGO_URI;
+const MONGO_URI = process.env.MONGO_URI || "your-default-mongo-uri";
 const JWT_SECRET = process.env.JWT_SECRET || "supersecretkey";
-app.use(express.static(path.join(__dirname, 'public')));
 
-// Middleware
+console.log("🔗 Connecting to MongoDB...");
+
+mongoose.connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+    .then(() => console.log("✅ MongoDB Connected"))
+    .catch(err => console.error("❌ MongoDB Connection Error:", err));
+
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, "public")));
 app.set("view engine", "ejs");
 
-// Connect to MongoDB
-mongoose.connect(MONGO_URI)
-    .then(() => console.log("✅ MongoDB Connected"))
-    .catch(err => console.error("❌ MongoDB Connection Error:", err));
-
-// ✅ Middleware to check authentication
 const authenticate = (req, res, next) => {
     const token = req.cookies.token;
-    if (!token) return res.redirect("/signin");
+
+    if (!token) {
+        console.error("❌ No token found in cookies.");
+        return res.redirect("/signin");
+    }
+
     try {
         const decoded = jwt.verify(token, JWT_SECRET);
         req.user = decoded;
+        console.log("✅ Authentication successful for user:", decoded.email);
         next();
     } catch (err) {
+        console.error("❌ Invalid or expired token:", err.message);
         res.clearCookie("token");
         return res.redirect("/signin");
     }
 };
 
-// ✅ Home Page
 app.get("/", (req, res) => {
     res.render("index", { qrCode: null, error: null });
 });
 
-app.get('/ads.txt', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'ads.txt'));
+app.get("/get-qr", async (req, res) => {
+    const { rollNo } = req.query;
+    if (!rollNo) return res.json({ error: "Roll number is required" });
+
+    try {
+        const qrRecord = await QRModel.findOne({ rollNo });
+        if (!qrRecord) return res.json({ error: "QR Code not found" });
+
+        res.json({ qrCodeUrl: qrRecord.qrCodeUrl });
+    } catch (error) {
+        console.error("❌ Error fetching QR Code:", error);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
 });
-// ✅ Signup Route
+
+app.get("/fileupload", authenticate, async (req, res) => {
+    try {
+        console.log("✅ Authenticated user accessing /fileupload:", req.user);
+        res.render("fileupload");
+    } catch (error) {
+        console.error("❌ Error rendering file upload page:", error);
+        res.status(500).send("Internal Server Error");
+    }
+});
+
 app.get("/signup", (req, res) => res.render("signup"));
 
 app.post("/signup", async (req, res) => {
     const { username, email, password } = req.body;
     if (!username || !email || !password) return res.render("signup", { error: "All fields are required!" });
+
     try {
         const hashedPassword = await bcrypt.hash(password, 10);
         await UserModel.create({ username, email, password: hashedPassword });
+        console.log("✅ User Created:", email);
         res.redirect("/signin");
     } catch (error) {
-        console.error(error);
+        console.error("❌ Error creating user:", error);
         res.render("signup", { error: "Error creating account!" });
     }
 });
 
-// ✅ Signin Route
 app.get("/signin", (req, res) => res.render("signin"));
-
 
 app.post("/signin", async (req, res) => {
     const { email, password } = req.body;
     if (!email || !password) return res.render("signin", { error: "All fields are required!" });
+
     try {
         const user = await UserModel.findOne({ email });
         if (!user || !(await bcrypt.compare(password, user.password))) {
@@ -81,63 +111,92 @@ app.post("/signin", async (req, res) => {
         }
         const token = jwt.sign({ id: user._id, email: user.email }, JWT_SECRET, { expiresIn: "1h" });
         res.cookie("token", token, { httpOnly: true });
+        console.log("✅ User Signed In:", email);
         res.redirect("/scan");
     } catch (error) {
-        console.error(error);
+        console.error("❌ Error signing in:", error);
         res.render("signin", { error: "Error signing in!" });
     }
 });
 
-// ✅ Logout Route
 app.get("/logout", (req, res) => {
     res.clearCookie("token");
     res.redirect("/signin");
 });
 
-// ✅ QR Code Generation
 app.post("/generate", async (req, res) => {
     const { rollNo, name, college, yearSemester, department, section, whatsapp, email } = req.body;
-    
+
     if (!rollNo || !name || !college || !yearSemester || !department || !section || !whatsapp || !email) {
         return res.render("index", { qrCode: null, error: "All fields are required!" });
     }
-    
+
     try {
         const userHash = crypto.createHash("sha256").update(`${rollNo}-${name}-${college}-${yearSemester}-${department}-${section}-${whatsapp}-${email}`).digest("hex");
-        
-        let existingQR = await QRModel.findOne({ userHash });
+
+        let existingQR = await QRModel.findOne({ rollNo });
         if (existingQR) {
+            console.log("ℹ️ QR Code already exists for Roll No:", rollNo);
             return res.render("index", { qrCode: existingQR.qrCodeUrl, error: null });
         }
-        
+
         const qrData = `Roll No: ${rollNo}\nName: ${name}\nCollege: ${college}\nYear & Semester: ${yearSemester}\nDepartment: ${department}\nSection: ${section}\nWhatsApp: ${whatsapp}\nEmail: ${email}`;
         const qrCodeUrl = await qr.toDataURL(qrData);
+
+        await QRModel.updateOne(
+            { rollNo }, // Find by roll number
+            { userHash, qrCodeUrl }, // Update data
+            { upsert: true } // Insert if not found
+        );
         
-        await QRModel.create({ userHash, qrCodeUrl });
+        // console.log("✅ QR Code Created:", { rollNo, userHash, qrCodeUrl });
+        console.log("✅ QR Code Generated for Roll No:", rollNo);
+
         res.render("index", { qrCode: qrCodeUrl, error: null });
     } catch (err) {
-        console.error(err);
+        console.error("❌ Error generating QR Code:", err);
         res.render("index", { qrCode: null, error: "Error generating QR Code!" });
     }
 });
 
-
-
-// ✅ List all QR Codes
 app.get("/list", async (req, res) => {
     try {
         const qrList = await QRModel.find();
         res.render("list", { qrList });
     } catch (error) {
-        console.error(error);
+        console.error("❌ Error fetching QR codes:", error);
         res.render("list", { qrList: [], error: "Error fetching QR codes." });
     }
 });
 
-// ✅ Protected Scan QR Page
 app.get("/scan", authenticate, (req, res) => res.render("scan"));
 
-// Start Server
+const upload = multer({ dest: "uploads/" });
+
+app.post("/upload-excel", upload.single("file"), async (req, res) => {
+    try {
+        console.log("📂 Excel File Uploaded:", req.file.path);
+        
+        const workbook = xlsx.readFile(req.file.path);
+        const sheetName = workbook.SheetNames[0];
+        const jsonData = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
+
+        for (let data of jsonData) {
+            if (!data.rollNo) {
+                console.warn("⚠️ Skipping entry without Roll No:", data);
+                continue;
+            }
+            console.log("📤 Sending Data to /generate:", data);
+            await axios.post("http://localhost:3000/generate", data);
+        }
+
+        res.send("✅ Excel uploaded & QR codes generated!");
+    } catch (err) {
+        console.error("❌ Error processing Excel file:", err);
+        res.status(500).send("❌ Error processing Excel file.");
+    }
+});
+
 app.listen(PORT, () => {
     console.log(`🚀 Server running on http://localhost:${PORT}`);
 });

@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Code Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+</head>
+<body class="bg-gradient-to-r from-blue-400 to-purple-500 flex items-center justify-center min-h-screen p-4">
+
+    <div class="bg-white p-6 rounded-lg shadow-lg text-center w-full max-w-md">
+        <h2 class="text-2xl font-semibold mb-4 text-gray-800">Upload Excel File</h2>
+
+        <!-- File Upload Form -->
+        <form id="uploadForm" class="flex flex-col items-center">
+            <input type="file" id="excelFile" accept=".xlsx" class="mb-4 p-2 border rounded-md w-full">
+            <button type="submit" class="bg-blue-500 text-white px-4 py-2 w-full rounded-lg hover:bg-blue-600 transition duration-300">
+                Upload & Generate QR Codes
+            </button>
+        </form>
+
+        <!-- Progress & Status -->
+        <div id="statusMessage" class="mt-4 font-medium"></div>
+        <div id="progressBar" class="w-full bg-gray-300 mt-2 rounded-md hidden">
+            <div id="progress" class="h-2 bg-green-500 rounded-md" style="width: 0%;"></div>
+        </div>
+
+        <!-- Go Back Button (Moved Inside the Container) -->
+        <button onclick="window.history.back();" 
+            class="mt-4 bg-gray-500 text-white px-4 py-2 w-full rounded-lg hover:bg-gray-600 transition duration-300">
+            ⬅️ Go Back
+        </button>
+    </div>
+
+    <script>
+        document.getElementById("uploadForm").addEventListener("submit", async function (e) {
+            e.preventDefault();
+            
+            const fileInput = document.getElementById("excelFile");
+            const statusMessage = document.getElementById("statusMessage");
+            const progressBar = document.getElementById("progressBar");
+            const progress = document.getElementById("progress");
+
+            if (!fileInput.files.length) {
+                statusMessage.innerText = "❌ Please select a file!";
+                statusMessage.classList.add("text-red-600");
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append("file", fileInput.files[0]);
+
+            try {
+                progressBar.classList.remove("hidden");
+                progress.style.width = "0%";
+                statusMessage.innerText = "Uploading...";
+                statusMessage.classList.remove("text-red-600", "text-green-600");
+                statusMessage.classList.add("text-blue-600");
+
+                const response = await axios.post("/upload-excel", formData, {
+                    headers: { "Content-Type": "multipart/form-data" },
+                    onUploadProgress: (progressEvent) => {
+                        const percent = Math.round((progressEvent.loaded / progressEvent.total) * 100);
+                        progress.style.width = percent + "%";
+                    }
+                });
+
+                statusMessage.innerText = "✅ Excel Uploaded Successfully!";
+                statusMessage.classList.remove("text-blue-600");
+                statusMessage.classList.add("text-green-600");
+                fileInput.value = "";
+                setTimeout(() => progressBar.classList.add("hidden"), 3000);
+            } catch (error) {
+                console.error(error);
+                statusMessage.innerText = "❌ Error uploading file!";
+                statusMessage.classList.remove("text-blue-600");
+                statusMessage.classList.add("text-red-600");
+            }
+        });
+    </script>
+
+</body>
+</html>

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QR Code Scanner with Local Storage</title>
+    <title>QR Code Scanner</title>
 
     <!-- Required Libraries -->
     <script src="https://unpkg.com/html5-qrcode"></script>
@@ -13,33 +13,36 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.71/vfs_fonts.js"></script>
 </head>
 
-<body class="bg-gradient-to-r from-purple-400 via-pink-500 to-red-500 flex flex-col items-center justify-center min-h-screen p-6">
-    <div class="bg-white shadow-2xl rounded-lg p-6 w-full max-w-lg text-center">
-        <h1 class="text-3xl font-bold text-gray-800 mb-4">📸 QR Code Scanner</h1>
+<body class="bg-gradient-to-br from-purple-500 to-red-500 flex flex-col items-center justify-center min-h-screen p-6">
+
+    <div class="bg-white shadow-2xl rounded-2xl p-6 w-full max-w-2xl text-center transform transition-all duration-300 hover:scale-105">
+        <h1 class="text-4xl font-extrabold text-gray-800 mb-4">📸 QR Scanner</h1>
+        <a href="/fileupload" class="text-blue-600 hover:underline mb-4 block text-lg font-semibold">Upload Excel File</a>
 
         <!-- Scanner Box -->
-        <div id="reader" class="text-black"></div>
+        <div id="reader" class="rounded-lg shadow-md overflow-hidden border border-gray-300 p-4"></div>
 
         <!-- Scan Counter -->
-        <div class="mt-4 text-gray-700 font-semibold text-lg">
-            <span>🔍 Scanned Entries: </span><span id="scan-count" class="text-blue-600">0</span>
+        <div class="mt-4 text-gray-700 font-bold text-lg">
+            <span>🔍 Scanned Entries: </span>
+            <span id="scan-count" class="text-blue-600">0</span>
         </div>
 
         <!-- Scanned Data Table -->
         <div id="result-container" class="hidden mt-6">
-            <h2 class="text-xl font-semibold text-gray-700 mb-3">Scanned Data</h2>
-            <div class="overflow-x-auto">
-                <table class="w-full border-collapse border border-gray-300 shadow-sm rounded-lg">
-                    <thead class="bg-blue-600 text-white">
+            <h2 class="text-xl font-semibold text-gray-700 mb-3">📜 Scanned Data</h2>
+            <div class="overflow-x-auto rounded-lg shadow-lg">
+                <table class="w-full border-collapse border border-gray-200 shadow-md rounded-lg bg-white">
+                    <thead class="bg-gradient-to-r from-blue-500 to-blue-700 text-white text-md">
                         <tr>
-                            <th class="border border-gray-300 px-3 py-2">Roll No</th>
-                            <th class="border border-gray-300 px-3 py-2">Name</th>
-                            <th class="border border-gray-300 px-3 py-2">Year & Semester</th>
-                            <th class="border border-gray-300 px-3 py-2">Department</th>
-                            <th class="border border-gray-300 px-3 py-2">Section</th>
-                            <th class="border border-gray-300 px-3 py-2">College</th>
-                            <th class="border border-gray-300 px-3 py-2">WhatsApp</th>
-                            <th class="border border-gray-300 px-3 py-2">Email</th>
+                            <th class="px-3 py-2">Roll No</th>
+                            <th class="px-3 py-2">Name</th>
+                            <th class="px-3 py-2">Year & Semester</th>
+                            <th class="px-3 py-2">Dept</th>
+                            <th class="px-3 py-2">Section</th>
+                            <th class="px-3 py-2">College</th>
+                            <th class="px-3 py-2">WhatsApp</th>
+                            <th class="px-3 py-2">Email</th>
                         </tr>
                     </thead>
                     <tbody id="result-table" class="bg-gray-50 text-gray-800"></tbody>
@@ -48,13 +51,13 @@
 
             <!-- Action Buttons -->
             <div class="mt-5 flex flex-wrap justify-center gap-4">
-                <button onclick="downloadExcel()" class="bg-green-600 text-white px-5 py-2 rounded-lg shadow-md hover:bg-green-700 transition">
+                <button onclick="downloadExcel()" class="bg-green-500 text-white px-5 py-2 rounded-lg shadow-md hover:bg-green-700 transform transition-all hover:scale-105">
                     📥 Download Excel
                 </button>
-                <button onclick="downloadPDF()" class="bg-red-600 text-white px-5 py-2 rounded-lg shadow-md hover:bg-red-700 transition">
+                <button onclick="downloadPDF()" class="bg-red-500 text-white px-5 py-2 rounded-lg shadow-md hover:bg-red-700 transform transition-all hover:scale-105">
                     📄 Download PDF
                 </button>
-                <button onclick="clearData()" class="bg-gray-600 text-white px-5 py-2 rounded-lg shadow-md hover:bg-gray-700 transition">
+                <button onclick="clearData()" class="bg-gray-600 text-white px-5 py-2 rounded-lg shadow-md hover:bg-gray-700 transform transition-all hover:scale-105">
                     🗑️ Clear Data
                 </button>
             </div>
@@ -126,14 +129,14 @@
             tableBody.innerHTML = "";
             storedData.forEach((data) => {
                 let newRow = `<tr class="border-b border-gray-300 bg-white hover:bg-gray-100">
-                    <td class="border border-gray-300 px-3 py-2">${data.rollNo}</td>
-                    <td class="border border-gray-300 px-3 py-2">${data.name}</td>
-                    <td class="border border-gray-300 px-3 py-2">${data.yearSemester}</td>
-                    <td class="border border-gray-300 px-3 py-2">${data.department}</td>
-                    <td class="border border-gray-300 px-4 py-2">${data.section}</td>
-                    <td class="border border-gray-300 px-4 py-2">${data.college}</td>
-                    <td class="border border-gray-300 px-3 py-2">${data.whatsapp}</td>
-                    <td class="border border-gray-300 px-3 py-2">${data.email}</td>
+                    <td class="px-3 py-2">${data.rollNo}</td>
+                    <td class="px-3 py-2">${data.name}</td>
+                    <td class="px-3 py-2">${data.yearSemester}</td>
+                    <td class="px-3 py-2">${data.department}</td>
+                    <td class="px-3 py-2">${data.section}</td>
+                    <td class="px-3 py-2">${data.college}</td>
+                    <td class="px-3 py-2">${data.whatsapp}</td>
+                    <td class="px-3 py-2">${data.email}</td>
                 </tr>`;
                 tableBody.insertAdjacentHTML("afterbegin", newRow);
             });
@@ -142,79 +145,6 @@
             if (storedData.length > 0) {
                 resultContainer.classList.remove("hidden");
             }
-        }
-
-        function downloadExcel() {
-            let storedData = JSON.parse(localStorage.getItem("scannedData")) || [];
-            if (storedData.length === 0) return alert("No data to download.");
-
-            let ws = XLSX.utils.json_to_sheet(storedData);
-            let wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "Scanned Data");
-
-            let date = getCurrentDate();
-
-            // Add footer in Excel
-            let footer = [
-                [],
-                ["Developed by GOLI SHIVAPRASAD REDDY ❤️"],
-                ["Date: " + date]
-            ];
-            XLSX.utils.sheet_add_aoa(ws, footer, { origin: -1 });
-
-            XLSX.writeFile(wb, `Scanned_Details_by_CheckQR_${date.replace(/[:/ ]/g, "_")}.xlsx`);
-        }
-
-        function downloadPDF() {
-            let storedData = JSON.parse(localStorage.getItem("scannedData")) || [];
-            if (storedData.length === 0) return alert("No data to download.");
-
-            let date = getCurrentDate();
-
-            let body = [["Roll No", "Name", "Year & Semester", "Department", "Section", "College", "WhatsApp", "Email"]];
-            storedData.forEach((data) => {
-                body.push([data.rollNo, data.name, data.yearSemester, data.department, data.section, data.college, data.whatsapp, data.email]);
-            });
-
-            let docDefinition = {
-                pageOrientation: "landscape",
-                pageSize: "A4",
-                content: [
-                    { text: "Scanned Details", style: "header" },
-                    { text: "Date: " + date, style: "subheader" },
-                    {
-                        table: {
-                            headerRows: 1,
-                            widths: Array(body[0].length).fill('auto'),
-                            body: body
-                        },
-                        layout: {
-                            fillColor: function (rowIndex) {
-                                return (rowIndex === 0) ? '#CCCCCC' : null;
-                            }
-                        }
-                    }
-                ],
-                footer: function (currentPage, pageCount) {
-                    return {
-                        text: `Developed by GOLI SHIVAPRASAD REDDY | Page ${currentPage} of ${pageCount}`,
-                        alignment: 'center',
-                        margin: [0, 10, 0, 0],
-                        fontSize: 10
-                    };
-                },
-                styles: {
-                    header: { fontSize: 18, bold: true, margin: [0, 0, 0, 10] },
-                    subheader: { fontSize: 14, italics: true, margin: [0, 0, 0, 10] }
-                }
-            };
-
-            pdfMake.createPdf(docDefinition).download(`Scanned_Details_by_CheckQR_${date.replace(/[:/ ]/g, "_")}.pdf`);
-        }
-
-        function getCurrentDate() {
-            let today = new Date();
-            return today.toLocaleDateString() + " " + today.toLocaleTimeString();
         }
 
         function clearData() {
