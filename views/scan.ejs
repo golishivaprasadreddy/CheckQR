@@ -79,6 +79,7 @@
         function onScanSuccess(decodedText) {
             let sound = document.getElementById("scanSound");
             sound.play();
+            setTimeout(() => sound.pause(), 50);
 
             if (scannedData.has(decodedText)) return;
             scannedData.add(decodedText);
