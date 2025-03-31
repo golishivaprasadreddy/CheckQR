@@ -147,6 +147,78 @@
                 resultContainer.classList.remove("hidden");
             }
         }
+ function downloadExcel() {
+            let storedData = JSON.parse(localStorage.getItem("scannedData")) || [];
+            if (storedData.length === 0) return alert("No data to download.");
+
+            let ws = XLSX.utils.json_to_sheet(storedData);
+            let wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Scanned Data");
+
+            let date = getCurrentDate();
+
+            // Add footer in Excel
+            let footer = [
+                [],
+                ["Developed by GOLI SHIVAPRASAD REDDY ❤️"],
+                ["Date: " + date]
+            ];
+            XLSX.utils.sheet_add_aoa(ws, footer, { origin: -1 });
+
+            XLSX.writeFile(wb, `Scanned_Details_by_CheckQR_${date.replace(/[:/ ]/g, "_")}.xlsx`);
+        }
+
+        function downloadPDF() {
+            let storedData = JSON.parse(localStorage.getItem("scannedData")) || [];
+            if (storedData.length === 0) return alert("No data to download.");
+
+            let date = getCurrentDate();
+
+            let body = [["Roll No", "Name", "Year & Semester", "Department", "Section", "College", "WhatsApp", "Email"]];
+            storedData.forEach((data) => {
+                body.push([data.rollNo, data.name, data.yearSemester, data.department, data.section, data.college, data.whatsapp, data.email]);
+            });
+
+            let docDefinition = {
+                pageOrientation: "landscape",
+                pageSize: "A4",
+                content: [
+                    { text: "Scanned Details", style: "header" },
+                    { text: "Date: " + date, style: "subheader" },
+                    {
+                        table: {
+                            headerRows: 1,
+                            widths: Array(body[0].length).fill('auto'),
+                            body: body
+                        },
+                        layout: {
+                            fillColor: function (rowIndex) {
+                                return (rowIndex === 0) ? '#CCCCCC' : null;
+                            }
+                        }
+                    }
+                ],
+                footer: function (currentPage, pageCount) {
+                    return {
+                        text: `Developed by GOLI SHIVAPRASAD REDDY | Page ${currentPage} of ${pageCount}`,
+                        alignment: 'center',
+                        margin: [0, 10, 0, 0],
+                        fontSize: 10
+                    };
+                },
+                styles: {
+                    header: { fontSize: 18, bold: true, margin: [0, 0, 0, 10] },
+                    subheader: { fontSize: 14, italics: true, margin: [0, 0, 0, 10] }
+                }
+            };
+
+            pdfMake.createPdf(docDefinition).download(`Scanned_Details_by_CheckQR_${date.replace(/[:/ ]/g, "_")}.pdf`);
+        }
+
+        function getCurrentDate() {
+            let today = new Date();
+            return today.toLocaleDateString() + " " + today.toLocaleTimeString();
+        }
 
         function clearData() {
             localStorage.removeItem("scannedData");
