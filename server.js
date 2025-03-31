@@ -13,7 +13,7 @@ const dotenv = require("dotenv");
 dotenv.config();
 
 const QRModel = require("./models/QRModel");
-const User = require('./models/UserModel');
+const User = require('./models/userModel');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
