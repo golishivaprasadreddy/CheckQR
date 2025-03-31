@@ -17,7 +17,14 @@
 
     <div class="bg-white shadow-2xl rounded-2xl p-6 w-full max-w-2xl text-center transform transition-all duration-300 hover:scale-105">
         <h1 class="text-4xl font-extrabold text-gray-800 mb-4">📸 QR Scanner</h1>
-        <a href="/fileupload" class="text-blue-600 hover:underline mb-4 block text-lg font-semibold">Upload Excel File</a>
+       <div class="flex justify-center space-x-4 mb-4">
+            <a href="/fileupload" class="bg-blue-500 text-white px-4 py-2 rounded-lg shadow-md hover:bg-blue-700 transform transition-all hover:scale-105 text-md font-semibold">
+                Upload Excel File
+            </a>
+            <a href="/logout" class="bg-red-500 text-white px-4 py-2 rounded-lg shadow-md hover:bg-red-700 transform transition-all hover:scale-105 text-md font-semibold">
+                Logout
+            </a>
+        </div>
 
         <!-- Scanner Box -->
         <div id="reader" class="rounded-lg shadow-md overflow-hidden border border-gray-300 p-4"></div>
