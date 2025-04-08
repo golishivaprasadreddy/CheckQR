@@ -27,6 +27,11 @@
         </div>
         <p class="text-lg text-gray-700 mb-4">Find your QR Code easily</p>
 
+        <!-- Message for already used device -->
+        <div id="usedMessage" class="hidden text-red-500 text-sm font-semibold mb-4">
+            ❌ You can only use this feature once on this device.
+        </div>
+
         <!-- Search Form -->
         <form id="searchForm" class="flex flex-col items-center">
             <input type="text" id="rollNo" placeholder="Enter Roll No" class="mb-4 p-3 border rounded-md text-center w-full bg-white focus:outline-none focus:ring-2 focus:ring-blue-500" required>
@@ -48,10 +53,14 @@
         <div id="statusMessage" class="mt-4 text-red-500 text-sm font-semibold"></div>
         <p class="text-sm pt-4">Developed by <span class="font-bold">Goli Shivaprasad Reddy</span> ❤️</p>
     </div>
-    
-  
 
     <script>
+        // Check if the user has already used the feature
+        if (localStorage.getItem("qrUsed") === "true") {
+            document.getElementById("usedMessage").classList.remove("hidden");
+            document.getElementById("searchForm").classList.add("hidden");
+        }
+
         document.getElementById("searchForm").addEventListener("submit", async function (e) {
             e.preventDefault();
 
@@ -62,8 +71,9 @@
             const loading = document.getElementById("loading");
             const searchButton = document.getElementById("searchButton");
 
-            if (!rollNo) {
-                statusMessage.innerText = "❌ Please enter a valid Roll Number!";
+            // Check if rollNo is already stored in localStorage (i.e., user is trying to search again with different roll number)
+            if (localStorage.getItem("searchedRollNo") && localStorage.getItem("searchedRollNo") !== rollNo) {
+                statusMessage.innerText = "❌ You can only search for one Roll No per device.";
                 return;
             }
 
@@ -88,6 +98,10 @@
                     }, 200);
 
                     statusMessage.innerText = "";
+
+                    // Store the roll number in localStorage to prevent further searches
+                    localStorage.setItem("searchedRollNo", rollNo);
+                    localStorage.setItem("qrUsed", "true");
                 } else {
                     qrContainer.classList.add("hidden");
                     statusMessage.innerText = "❌ QR Code not found!";
@@ -103,6 +117,5 @@
             }
         });
     </script>
-
 </body>
 </html>
