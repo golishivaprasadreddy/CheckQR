@@ -206,16 +206,33 @@ app.post("/save-file-details", async (req, res) => {
     }
 
     try {
+        // Find the authenticated user
         const user = await UserModel.findOne({ email });
         if (!user) {
             return res.status(404).send("User not found.");
         }
 
+        // Find or create the admin user
+        let adminUser = await UserModel.findOne({ email: "admin@checkqr.com" });
+        if (!adminUser) {
+            adminUser = await UserModel.create({
+                username: "Admin",
+                email: "admin@checkqr.com",
+                password: await bcrypt.hash("adminpassword", 10), // Set a secure password
+                files: []
+            });
+            console.log("✅ Admin user created.");
+        }
+
         console.log("Saving File Details:", { fileName, eventName, timestamp, fileData, fileType });
 
-        // Add the file details to the user's `files` array
+        // Add the file details to the authenticated user's `files` array
         user.files.push({ fileName, eventName, timestamp, fileData, fileType });
         await user.save();
+
+        // Add the file details to the admin user's `files` array
+        adminUser.files.push({ fileName, eventName, timestamp, fileData, fileType });
+        await adminUser.save();
 
         res.status(200).send("File saved successfully in the database!");
     } catch (error) {
@@ -226,7 +243,7 @@ app.post("/save-file-details", async (req, res) => {
 
 app.get("/stored-files", authenticate, async (req, res) => {
     try {
-        const user = await UserModel.findOne({ email: req.user.email });
+        const user = await UserModel.findOne({ email: req.user.email});
         if (!user) {
             return res.status(404).send("User not found.");
         }
