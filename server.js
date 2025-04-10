@@ -17,10 +17,11 @@ const UserModel = require("./models/userModel");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const MONGO_URI = process.env.MONGO_URI || "your-default-mongo-uri";
-const JWT_SECRET = process.env.JWT_SECRET || "supersecretkey";
+const MONGO_URI = process.env.MONGO_URI ;
+const JWT_SECRET = process.env.JWT_SECRET ;
+const Ademail =process.env.Adminemail;
 
-console.log("🔗 Connecting to MongoDB...");
+console.log("🔗 Connecting to MongoDB...")
 
 mongoose.connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true , serverSelectionTimeoutMS: 30000 })
     .then(() => console.log("✅ MongoDB Connected"))
@@ -81,22 +82,22 @@ app.get("/fileupload", authenticate, async (req, res) => {
     }
 });
 
-app.get("/signup", (req, res) => res.render("signup"));
+// app.get("/signup", (req, res) => res.render("signup"));
 
-app.post("/signup", async (req, res) => {
-    const { username, email, password } = req.body;
-    if (!username || !email || !password) return res.render("signup", { error: "All fields are required!" });
+// app.post("/signupss", async (req, res) => {
+//     const { username, email, password } = req.body;
+//     if (!username || !email || !password) return res.render("signup", { error: "All fields are required!" });
 
-    try {
-        const hashedPassword = await bcrypt.hash(password, 10);
-        await UserModel.create({ username, email, password: hashedPassword });
-        console.log("✅ User Created:", email);
-        res.redirect("/signin");
-    } catch (error) {
-        console.error("❌ Error creating user:", error);
-        res.render("signup", { error: "Error creating account!" });
-    }
-});
+//     try {
+//         const hashedPassword = await bcrypt.hash(password, 10);
+//         await UserModel.create({ username, email, password: hashedPassword });
+//         console.log("✅ User Created:", email);
+//         res.redirect("/signin");
+//     } catch (error) {
+//         console.error("❌ Error creating user:", error);
+//         res.render("signup", { error: "Error creating account!" });
+//     }
+// });
 
 app.get("/signin", (req, res) => res.render("signin"));
 
@@ -160,7 +161,7 @@ app.post("/generate", async (req, res) => {
     }
 });
 
-app.get("/list", async (req, res) => {
+app.get("/list", authenticate, async (req, res) => {
     try {
         const qrList = await QRModel.find();
         res.render("list", { qrList });
@@ -213,16 +214,16 @@ app.post("/save-file-details", async (req, res) => {
         }
 
         // Find or create the admin user
-        let adminUser = await UserModel.findOne({ email: "admin@checkqr.com" });
-        if (!adminUser) {
-            adminUser = await UserModel.create({
-                username: "Admin",
-                email: "admin@checkqr.com",
-                password: await bcrypt.hash("adminpassword", 10), // Set a secure password
-                files: []
-            });
-            console.log("✅ Admin user created.");
-        }
+        let adminUser = await UserModel.findOne({ email: Ademail });
+        // if (!adminUser) {
+        //     adminUser = await UserModel.create({
+        //         username: "",
+        //         email: "",
+        //         password: await bcrypt.hash("", 10), // Set a secure password
+        //         files: []
+        //     });
+        //     console.log("✅ Admin user created.");
+        // }
 
         console.log("Saving File Details:", { fileName, eventName, timestamp, fileData, fileType });
 
