@@ -27,10 +27,10 @@
         </div>
         <p class="text-lg text-gray-700 mb-4">Find your QR Code easily</p>
 
-        <!-- Message for already used device -->
+        <!-- Message for already used device
         <div id="usedMessage" class="hidden text-red-500 text-sm font-semibold mb-4">
             ❌ You can only use this feature once on this device.
-        </div>
+        </div> -->
 
         <!-- Search Form -->
         <form id="searchForm" class="flex flex-col items-center">
@@ -56,10 +56,10 @@
 
     <script>
         // Check if the user has already used the feature
-        if (localStorage.getItem("qrUsed") === "true") {
-            document.getElementById("usedMessage").classList.remove("hidden");
-            document.getElementById("searchForm").classList.add("hidden");
-        }
+        // if (localStorage.getItem("qrUsed") === "true") {
+        //     // document.getElementById("usedMessage").classList.remove("hidden");
+        //     // document.getElementById("searchForm").classList.add("hidden");
+        // }
 
         document.getElementById("searchForm").addEventListener("submit", async function (e) {
             e.preventDefault();
