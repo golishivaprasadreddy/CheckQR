@@ -7,6 +7,10 @@
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gradient-to-br from-green-200 to-blue-300 flex flex-col items-center justify-center min-h-screen p-6">
+    <div class="flex items-center justify-center space-x-4 mb-4 ">
+        <h2 class="text-4xl font-extrabold text-gray-800">CheckQR</h2>
+            <img width="60" height="60" src="https://img.icons8.com/bubbles/100/qr-code.png" alt="qr-code"/>
+        </div>
     <div class="bg-white shadow-2xl rounded-2xl p-6 w-full max-w-4xl text-center">
         <h1 class="text-3xl font-extrabold text-gray-800 mb-6">📂 Stored Files</h1>
         <table class="w-full border-collapse border border-gray-200 shadow-md rounded-lg bg-white">
@@ -20,7 +24,6 @@
             </thead>
             <tbody class="bg-gray-50 text-gray-800">
                 <% files.forEach(file => { %>
-                    console.log(file);
                     <tr class="border-b border-gray-300 hover:bg-gray-100">
                         <td class="px-3 py-2"><%= file.fileName %></td>
                         <td class="px-3 py-2"><%= file.eventName %></td>
@@ -38,6 +41,10 @@
                 <% }) %>
             </tbody>
         </table>
+        <button onclick="window.history.back();" 
+            class="mt-4 bg-gray-500 text-white px-4 py-2 w-30 rounded-lg hover:bg-gray-600 transition duration-300">
+            ⬅️ Go Back
+        </button>
     </div>
 </body>
 </html>
