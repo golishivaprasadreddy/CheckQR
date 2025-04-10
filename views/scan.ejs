@@ -23,6 +23,10 @@
             <a href="/fileupload" class="bg-blue-500 text-white px-4 py-2 rounded-lg shadow-md hover:bg-blue-700 transform transition-all hover:scale-105 text-md font-semibold flex items-center gap-2">
                 📤 Upload Excel File
             </a>
+            <a href="/stored-files" class="bg-yellow-500 text-white px-4 py-2 rounded-lg shadow-md hover:bg-yellow-700 transform transition-all hover:scale-105 text-md font-semibold flex items-center gap-2">
+                📂 View Stored Files
+            </a>            
+            
             <a href="/logout" class="bg-red-500 text-white px-4 py-2 rounded-lg shadow-md hover:bg-red-700 transform transition-all hover:scale-105 text-md font-semibold flex items-center gap-2">
                 🚪 Logout
             </a>
@@ -241,70 +245,90 @@
             XLSX.utils.book_append_sheet(wb, ws, "Scanned Data");
 
             let date = getCurrentDate();
-            let eventName = localStorage.getItem("eventName"); // Dynamically get event name from localStorage
+            let eventName = localStorage.getItem("eventName") || "Event";
+            let fileName = `${eventName}.xlsx`;
 
-      
             // Add footer in Excel
             let footer = [
                 [],
-                 [`Event Name: ${eventName}`],
+                [`Event Name: ${eventName}`],
                 ["Developed by GOLI SHIVAPRASAD REDDY ❤️"],
                 ["Date: " + date]
             ];
             XLSX.utils.sheet_add_aoa(ws, footer, { origin: -1 });
-            XLSX.writeFile(wb, `${eventName}.xlsx`);
 
-            // XLSX.writeFile(wb, `Scanned_Details_by_CheckQR_${date.replace(/[:/ ]/g, "_")}.xlsx`);
+            // Generate Excel file as a Blob
+            let excelBlob = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+            let blob = new Blob([excelBlob], { type: "application/octet-stream" });
+
+            // Convert Blob to Base64
+            let reader = new FileReader();
+            reader.onload = function () {
+                let base64Data = reader.result.split(",")[1]; // Remove the "data:..." prefix
+                saveFileToDB(fileName, eventName, date, base64Data, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+            };
+            reader.readAsDataURL(blob);
+
+            // Trigger download
+            let link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = fileName;
+            link.click();
         }
 
         function downloadPDF() {
-            let storedData = JSON.parse(localStorage.getItem("scannedData")) || [];
-            if (storedData.length === 0) return alert("No data to download.");
+    let storedData = JSON.parse(localStorage.getItem("scannedData")) || [];
+    if (storedData.length === 0) return alert("No data to download.");
 
-            let date = getCurrentDate();
-            let eventName = localStorage.getItem("eventName");
+    let date = getCurrentDate();
+    let eventName = localStorage.getItem("eventName") || "Event";
+    let fileName = `${eventName}.pdf`;
 
-            let body = [["Roll No", "Name", "Year & Semester", "Department", "Section", "College", "WhatsApp", "Email"]];
-            storedData.forEach((data) => {
-                body.push([data.rollNo, data.name, data.yearSemester, data.department, data.section, data.college, data.whatsapp, data.email]);
-            });
+    let body = [["Roll No", "Name", "Year & Semester", "Department", "Section", "College", "WhatsApp", "Email"]];
+    storedData.forEach((data) => {
+        body.push([data.rollNo, data.name, data.yearSemester, data.department, data.section, data.college, data.whatsapp, data.email]);
+    });
 
-            let docDefinition = {
-                pageOrientation: "landscape",
-                pageSize: "A4",
-                content: [
-                { text: `${eventName} - Scanned Details`, style: "header" },
-                            { text: "Date: " + date, style: "subheader" },
-                    {
-                        table: {
-                            headerRows: 1,
-                            widths: Array(body[0].length).fill('auto'),
-                            body: body
-                        },
-                        layout: {
-                            fillColor: function (rowIndex) {
-                                return (rowIndex === 0) ? '#CCCCCC' : null;
-                            }
-                        }
-                    }
-                ],
-                footer: function (currentPage, pageCount) {
-                    return {
-                        text: `Developed by GOLI SHIVAPRASAD REDDY | Page ${currentPage} of ${pageCount}`,
-                        alignment: 'center',
-                        margin: [0, 10, 0, 0],
-                        fontSize: 10
-                    };
+    let docDefinition = {
+        pageOrientation: "landscape",
+        pageSize: "A4",
+        content: [
+            { text: `${eventName} - Scanned Details`, style: "header" },
+            { text: "Date: " + date, style: "subheader" },
+            {
+                table: {
+                    headerRows: 1,
+                    widths: Array(body[0].length).fill("auto"),
+                    body: body
                 },
-                styles: {
-                    header: { fontSize: 18, bold: true, margin: [0, 0, 0, 10] },
-                    subheader: { fontSize: 14, italics: true, margin: [0, 0, 0, 10] }
+                layout: {
+                    fillColor: function (rowIndex) {
+                        return rowIndex === 0 ? "#CCCCCC" : null;
+                    }
                 }
+            }
+        ],
+        footer: function (currentPage, pageCount) {
+            return {
+                text: `Developed by GOLI SHIVAPRASAD REDDY | Page ${currentPage} of ${pageCount}`,
+                alignment: "center",
+                margin: [0, 10, 0, 0],
+                fontSize: 10
             };
-            pdfMake.createPdf(docDefinition).download(`${eventName}.pdf`);
-
-            // pdfMake.createPdf(docDefinition).download(`Scanned_Details_by_CheckQR_${date.replace(/[:/ ]/g, "_")}.pdf`);
+        },
+        styles: {
+            header: { fontSize: 18, bold: true, margin: [0, 0, 0, 10] },
+            subheader: { fontSize: 14, italics: true, margin: [0, 0, 0, 10] }
         }
+    };
+
+    pdfMake.createPdf(docDefinition).getBase64((base64Data) => {
+        saveFileToDB(fileName, eventName, date, base64Data, "application/pdf");
+    });
+
+    // Trigger download
+    pdfMake.createPdf(docDefinition).download(fileName);
+}
 
         function getCurrentDate() {
             let today = new Date();
@@ -348,6 +372,34 @@
                 toast.remove();
             }, 3000);
         }
+
+        function saveFileToDB(fileName, eventName, timestamp, fileData, fileType) {
+    const email = localStorage.getItem("email"); // Retrieve email from localStorage
+    if (!email) {
+        console.error("Email not found in localStorage.");
+        return;
+    }
+
+    console.log("Saving File to DB:", { fileName, eventName, timestamp, fileData, fileType }); // Debug the input
+
+    fetch("/save-file-details", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ fileName, eventName, timestamp, email, fileData, fileType }),
+    })
+        .then((response) => {
+            if (response.ok) {
+                console.log("File saved successfully in the database!");
+            } else {
+                console.error("Failed to save file in the database.");
+            }
+        })
+        .catch((error) => {
+            console.error("Error saving file in the database:", error);
+        });
+}
     </script>
 </body>
 </html>

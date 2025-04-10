@@ -22,7 +22,7 @@ const JWT_SECRET = process.env.JWT_SECRET || "supersecretkey";
 
 console.log("🔗 Connecting to MongoDB...");
 
-mongoose.connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+mongoose.connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true , serverSelectionTimeoutMS: 30000 })
     .then(() => console.log("✅ MongoDB Connected"))
     .catch(err => console.error("❌ MongoDB Connection Error:", err));
 
@@ -111,6 +111,7 @@ app.post("/signin", async (req, res) => {
         }
         const token = jwt.sign({ id: user._id, email: user.email }, JWT_SECRET, { expiresIn: "1h" });
         res.cookie("token", token, { httpOnly: true });
+      
         console.log("✅ User Signed In:", email);
         res.redirect("/scan");
     } catch (error) {
@@ -121,7 +122,7 @@ app.post("/signin", async (req, res) => {
 
 app.get("/logout", (req, res) => {
     res.clearCookie("token");
-    res.redirect("/signin");
+   res.redirect("/signin");
 });
 
 app.post("/generate", async (req, res) => {
@@ -194,6 +195,124 @@ app.post("/upload-excel", upload.single("file"), async (req, res) => {
     } catch (err) {
         console.error("❌ Error processing Excel file:", err);
         res.status(500).send("❌ Error processing Excel file.");
+    }
+});
+
+app.post("/save-file-details", async (req, res) => {
+    const { fileName, eventName, timestamp, email, fileData, fileType } = req.body;
+
+    if (!fileName || !eventName || !timestamp || !email || !fileData || !fileType) {
+        return res.status(400).send("All fields are required.");
+    }
+
+    try {
+        const user = await UserModel.findOne({ email });
+        if (!user) {
+            return res.status(404).send("User not found.");
+        }
+
+        console.log("Saving File Details:", { fileName, eventName, timestamp, fileData, fileType });
+
+        // Add the file details to the user's `files` array
+        user.files.push({ fileName, eventName, timestamp, fileData, fileType });
+        await user.save();
+
+        res.status(200).send("File saved successfully in the database!");
+    } catch (error) {
+        console.error("Error saving file in the database:", error);
+        res.status(500).send("Error saving file in the database.");
+    }
+});
+
+app.get("/stored-files", authenticate, async (req, res) => {
+    try {
+        const user = await UserModel.findOne({ email: req.user.email });
+        if (!user) {
+            return res.status(404).send("User not found.");
+        }
+
+        res.render("stored-files", { files: user.files });
+    } catch (error) {
+        console.error("Error fetching stored files:", error);
+        res.status(500).send("Error fetching stored files.");
+    }
+});
+
+app.post("/delete-file/:id", authenticate, async (req, res) => {
+    try {
+        const user = await UserModel.findOne({ email: req.user.email });
+        if (!user) {
+            return res.status(404).send("User not found.");
+        }
+
+        // Find the file by ID
+        const file = user.files.id(req.params.id);
+        if (!file) {
+            return res.status(404).send("File not found.");
+        }
+
+        // Remove the file from the user's files array
+        user.files.pull({ _id: req.params.id });
+
+        // Save the updated user document
+        await user.save({ validateModifiedOnly: true }); // Skip validation for unmodified fields
+
+        res.redirect("/stored-files"); // Redirect back to the stored files page
+    } catch (error) {
+        console.error("Error deleting file:", error);
+        res.status(500).send("Error deleting file.");
+    }
+});
+
+app.post("/delete-file/:id", authenticate, async (req, res) => {
+    try {
+        const user = await UserModel.findOne({ email: req.user.email });
+        if (!user) {
+            return res.status(404).send("User not found.");
+        }
+
+        // Find the file by ID
+        const file = user.files.id(req.params.id);
+        if (!file) {
+            return res.status(404).send("File not found.");
+        }
+
+        // Remove the file from the user's files array
+        user.files.pull({ _id: req.params.id });
+
+        // Save the updated user document
+        await user.save({ validateModifiedOnly: true }); // Skip validation for unmodified fields
+
+        res.redirect("/stored-files"); // Redirect back to the stored files page
+    } catch (error) {
+        console.error("Error deleting file:", error);
+        res.status(500).send("Error deleting file.");
+    }
+});
+
+app.get("/download-file/:id", authenticate, async (req, res) => {
+    try {
+        const user = await UserModel.findOne({ email: req.user.email });
+        if (!user) {
+            return res.status(404).send("User not found.");
+        }
+
+        // Find the file by ID
+        const file = user.files.id(req.params.id);
+        if (!file) {
+            return res.status(404).send("File not found.");
+        }
+
+        // Convert Base64 data back to a buffer
+        const buffer = Buffer.from(file.fileData, "base64");
+
+        // Set headers and send the file
+        res.setHeader("Content-Type", file.fileType);
+        res.setHeader("Content-Disposition", `attachment; filename="${file.fileName}"`);
+        res.send(buffer);
+    } catch (error) {
+        console.error("Error downloading file:", error);
+        res.status(500).send("Error downloading file.");
     }
 });
 

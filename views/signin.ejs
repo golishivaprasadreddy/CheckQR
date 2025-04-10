@@ -45,5 +45,37 @@
             Don't have an account? <a href="/signup" class="text-green-600 font-medium hover:underline">Sign up</a>
         </p>
     </div>
+    <script>
+        const form = document.querySelector("form");
+    
+        form.addEventListener("submit", async (event) => {
+            event.preventDefault(); // Prevent the default form submission
+    
+            const formData = new FormData(form);
+            const email = formData.get("email");
+            const password = formData.get("password");
+    
+            try {
+                const response = await fetch("/signin", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({ email, password }),
+                });
+    
+                if (response.ok) {
+                    localStorage.setItem("email", email); // Store email in localStorage
+                    window.location.href = "/scan"; // Redirect to the scan page
+                } else {
+                    const error = await response.text();
+                    alert(`Sign-in failed: ${error}`);
+                }
+            } catch (error) {
+                console.error("Error during sign-in:", error);
+                alert("An error occurred. Please try again.");
+            }
+        });
+    </script>
 </body>
 </html>
