@@ -10,15 +10,17 @@ const multer = require("multer");
 const xlsx = require("xlsx");
 const axios = require("axios");
 const dotenv = require("dotenv");
+const fs = require("fs");
 dotenv.config();
 
 const QRModel = require("./models/QRModel");
 const UserModel = require("./models/userModel");
+const StudentModel = require("./models/StudentModel"); // Import the Student model
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const MONGO_URI = process.env.MONGO_URI ;
-const JWT_SECRET = process.env.JWT_SECRET ;
+const JWT_SECRET = process.env.JWT_SECRET;
 const Ademail =process.env.Adminemail;
 
 console.log("🔗 Connecting to MongoDB...")
@@ -82,23 +84,6 @@ app.get("/fileupload", authenticate, async (req, res) => {
     }
 });
 
-// app.get("/signup", (req, res) => res.render("signup"));
-
-// app.post("/signupss", async (req, res) => {
-//     const { username, email, password } = req.body;
-//     if (!username || !email || !password) return res.render("signup", { error: "All fields are required!" });
-
-//     try {
-//         const hashedPassword = await bcrypt.hash(password, 10);
-//         await UserModel.create({ username, email, password: hashedPassword });
-//         console.log("✅ User Created:", email);
-//         res.redirect("/signin");
-//     } catch (error) {
-//         console.error("❌ Error creating user:", error);
-//         res.render("signup", { error: "Error creating account!" });
-//     }
-// });
-
 app.get("/signin", (req, res) => res.render("signin"));
 
 app.post("/signin", async (req, res) => {
@@ -151,7 +136,6 @@ app.post("/generate", async (req, res) => {
             { upsert: true } // Insert if not found
         );
         
-        // console.log("✅ QR Code Created:", { rollNo, userHash, qrCodeUrl });
         console.log("✅ QR Code Generated for Roll No:", rollNo);
 
         res.render("index", { qrCode: qrCodeUrl, error: null });
@@ -178,24 +162,41 @@ const upload = multer({ dest: "uploads/" });
 app.post("/upload-excel", upload.single("file"), async (req, res) => {
     try {
         console.log("📂 Excel File Uploaded:", req.file.path);
-        
+
+        // Read the uploaded Excel file
         const workbook = xlsx.readFile(req.file.path);
         const sheetName = workbook.SheetNames[0];
         const jsonData = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
 
-        for (let data of jsonData) {
-            if (!data.rollNo) {
-                console.warn("⚠️ Skipping entry without Roll No:", data);
-                continue;
-            }
-            console.log("📤 Sending Data to /generate:", data);
-            await axios.post("http://localhost:3000/generate", data);
+        // Filter and map the data to include only the required fields
+        const students = jsonData.map((data) => ({
+            rollNo: data.rollNo || null,
+            name: data.name || null,
+            department: data.department || null,
+            college: data.college || null,
+            section: data.section || null,
+        })).filter(student => student.rollNo && student.name && student.department && student.college && student.section);
+
+        if (students.length === 0) {
+            return res.status(400).send("❌ No valid data found in the Excel file.");
         }
 
-        res.send("✅ Excel uploaded & QR codes generated!");
+        // Insert the filtered data into the database
+        await StudentModel.insertMany(students, { ordered: false });
+
+        console.log("✅ Student data saved to the database!");
+        res.send("✅ Excel uploaded and student data saved!");
     } catch (err) {
         console.error("❌ Error processing Excel file:", err);
+
+        if (err.code === 11000) {
+            return res.status(400).send("❌ Duplicate roll numbers found in the Excel file.");
+        }
+
         res.status(500).send("❌ Error processing Excel file.");
+    } finally {
+        // Clean up the uploaded file
+        fs.unlinkSync(req.file.path);
     }
 });
 
@@ -215,15 +216,6 @@ app.post("/save-file-details", async (req, res) => {
 
         // Find or create the admin user
         let adminUser = await UserModel.findOne({ email: Ademail });
-        // if (!adminUser) {
-        //     adminUser = await UserModel.create({
-        //         username: "",
-        //         email: "",
-        //         password: await bcrypt.hash("", 10), // Set a secure password
-        //         files: []
-        //     });
-        //     console.log("✅ Admin user created.");
-        // }
 
         console.log("Saving File Details:", { fileName, eventName, timestamp, fileData, fileType });
 
@@ -253,32 +245,6 @@ app.get("/stored-files", authenticate, async (req, res) => {
     } catch (error) {
         console.error("Error fetching stored files:", error);
         res.status(500).send("Error fetching stored files.");
-    }
-});
-
-app.post("/delete-file/:id", authenticate, async (req, res) => {
-    try {
-        const user = await UserModel.findOne({ email: req.user.email });
-        if (!user) {
-            return res.status(404).send("User not found.");
-        }
-
-        // Find the file by ID
-        const file = user.files.id(req.params.id);
-        if (!file) {
-            return res.status(404).send("File not found.");
-        }
-
-        // Remove the file from the user's files array
-        user.files.pull({ _id: req.params.id });
-
-        // Save the updated user document
-        await user.save({ validateModifiedOnly: true }); // Skip validation for unmodified fields
-
-        res.redirect("/stored-files"); // Redirect back to the stored files page
-    } catch (error) {
-        console.error("Error deleting file:", error);
-        res.status(500).send("Error deleting file.");
     }
 });
 
