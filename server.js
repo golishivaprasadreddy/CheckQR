@@ -370,9 +370,12 @@ app.get("/download-file/:id", authenticate, async (req, res) => {
 });
 
 app.post("/mark-attendance", async (req, res) => {
-    const { eventName, rollNumbers } = req.body;
+    const { eventName, batches, departments, rollNumbers } = req.body;
 
-    if (!eventName || !rollNumbers || !Array.isArray(rollNumbers)) {
+    // Log the received data for debugging
+    console.log("Received data:", { eventName, batches, departments, rollNumbers });
+
+    if (!eventName || !batches || !departments || !rollNumbers || !Array.isArray(rollNumbers)) {
         return res.status(400).json({ error: "Invalid request data." });
     }
 
@@ -388,8 +391,13 @@ app.post("/mark-attendance", async (req, res) => {
             return res.status(400).json({ error: "Attendance already marked for this event." });
         }
 
-        // Fetch all students from the database
-        const students = await StudentModel.find();
+        // Fetch students filtered by batches and departments
+        const students = await StudentModel.find({
+            batchYear: { $in: batches },
+            department: { $in: departments },
+        });
+
+        console.log("Filtered students:", students);
 
         for (const student of students) {
             // Initialize the `events` map if it doesn't exist
@@ -399,7 +407,7 @@ app.post("/mark-attendance", async (req, res) => {
             if (rollNumbers.includes(student.rollNo)) {
                 student.events.set(eventName, "present");
             } else {
-                student.events.set(eventName, "absent");
+                continue; // Skip marking absent for students not in rollNumbers
             }
 
             // Save the updated student document

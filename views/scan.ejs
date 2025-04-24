@@ -36,8 +36,36 @@
         <!-- Event Name Input -->
         <div id="event-name-container" class="mb-4 hidden gap-8">
             <input type="text" id="eventName" placeholder="Enter Event Name" class="p-3 border rounded-md text-center w-full bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300" required>
+            
+            <!-- Add Batch and Department Selection -->
+            <div id="filters-container" class="mb-4 gap-8">
+                <!-- Multi-select for Batch -->
+                <select id="batch" multiple class="p-3 border rounded-md text-center w-full bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300">
+                    <option value="2021">2021</option>
+                    <option value="2022">2022</option>
+                    <option value="2023">2023</option>
+                    <option value="2024">2024</option>
+                    <option value="2025">2025</option>
+                </select>
+                <small class="text-gray-600">Hold Ctrl (Windows) or Cmd (Mac) to select multiple batches</small>
+
+                <!-- Multi-select for Department -->
+                <select id="department" multiple class="p-3 border rounded-md text-center w-full bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300">
+                    <option value="CSE">CSE</option>
+                    <option value="ECE">ECE</option>
+                    <option value="EEE">EEE</option>
+                    <option value="CSM">CSM</option>
+                    <option value="CSD">CSD</option>
+                    <option value="IT">IT</option>
+                    <option value="CIVIL">CIVIL</option>
+                    <option value="MECH">MECH</option>
+                </select>
+                <small class="text-gray-600">Hold Ctrl (Windows) or Cmd (Mac) to select multiple departments</small>
+            </div>
+
+            <!-- Update the Start Scanner Button -->
             <div class="flex justify-center items-center">
-                <button onclick="startScannerWithEventName()" class="bg-green-500 text-white px-4 py-2 mt-4 rounded-lg shadow-md hover:bg-green-700 transform transition-all hover:scale-105 flex items-center justify-center gap-2">
+                <button onclick="startScannerWithFilters()" class="bg-green-500 text-white px-4 py-2 mt-4 rounded-lg shadow-md hover:bg-green-700 transform transition-all hover:scale-105 flex items-center justify-center gap-2">
                     🚀 Start Scanner
                 </button>
             </div>
@@ -137,7 +165,7 @@
         function startScannerWithEventName() {
             const eventName = document.getElementById("eventName").value.trim();
             if (!eventName) {
-                alert("Please enter an event name to start the scanner!");
+                console.log("Please enter an event name to start the scanner!");
                 return;
             }
     
@@ -145,6 +173,31 @@
             document.getElementById("event-name-container").classList.add("hidden");
             document.getElementById("scanner-container").classList.remove("hidden");
     
+            startScanner();
+        }
+    
+        function startScannerWithFilters() {
+            const eventName = document.getElementById("eventName").value.trim();
+            const batchSelect = document.getElementById("batch");
+            const departmentSelect = document.getElementById("department");
+
+            // Get selected values for batch and department
+            const selectedBatches = Array.from(batchSelect.selectedOptions).map(option => option.value);
+            const selectedDepartments = Array.from(departmentSelect.selectedOptions).map(option => option.value);
+
+            if (!eventName || selectedBatches.length === 0 || selectedDepartments.length === 0) {
+                alert("Please select an event name, at least one batch, and at least one department to start the scanner!");
+                return;
+            }
+
+            // Store the selected values in localStorage
+            localStorage.setItem("eventName", eventName);
+            localStorage.setItem("batches", JSON.stringify(selectedBatches));
+            localStorage.setItem("departments", JSON.stringify(selectedDepartments));
+
+            document.getElementById("event-name-container").classList.add("hidden");
+            document.getElementById("scanner-container").classList.remove("hidden");
+
             startScanner();
         }
     
@@ -202,7 +255,7 @@
 
             // Prevent duplicate entries in localStorage
             if (storedData.some(entry => entry.rollNo === data.rollNo)) {
-                alert("This QR code is already saved!");
+                console.log("This QR code is already saved!");
                 return;
             }
 
@@ -241,7 +294,7 @@
         initializeScanner();
         function downloadExcel() {
     let storedData = JSON.parse(localStorage.getItem("scannedData")) || [];
-    if (storedData.length === 0) return alert("No data to download.");
+    if (storedData.length === 0) return console.log("No data to download.");
 
     let ws = XLSX.utils.json_to_sheet(storedData);
     let wb = XLSX.utils.book_new();
@@ -273,7 +326,7 @@
 
 function downloadPDF() {
     let storedData = JSON.parse(localStorage.getItem("scannedData")) || [];
-    if (storedData.length === 0) return alert("No data to download.");
+    if (storedData.length === 0) return console.log("No data to download.");
 
     let date = new Date().toLocaleDateString();
     let eventName = localStorage.getItem("eventName") || "Event";
@@ -332,6 +385,8 @@ function downloadPDF() {
             // Remove scanned data and event name from localStorage
             localStorage.removeItem("scannedData");
             localStorage.removeItem("eventName");
+            localStorage.removeItem("batch");
+            localStorage.removeItem("department");
 
             // Clear the table and hide the result container
             document.getElementById("result-table").innerHTML = "";
@@ -395,43 +450,46 @@ function downloadPDF() {
 }
 
         async function markAttendanceFromLocalStorage() {
-    const storedData = JSON.parse(localStorage.getItem("scannedData")) || [];
-    if (storedData.length === 0) {
-        alert("No data available for attendance marking.");
-        return;
-    }
+            const storedData = JSON.parse(localStorage.getItem("scannedData")) || [];
+            if (storedData.length === 0) {
+                console.log("No data available for attendance marking.");
+                return;
+            }
 
-    const eventName = localStorage.getItem("eventName");
-    if (!eventName) {
-        alert("Event name is missing. Please set an event name.");
-        return;
-    }
+            const eventName = localStorage.getItem("eventName");
+            const batches = JSON.parse(localStorage.getItem("batches"));
+            const departments = JSON.parse(localStorage.getItem("departments"));
 
-    const rollNumbers = storedData.map((data) => data.rollNo);
+            if (!eventName || !batches || !departments) {
+                console.log("Event name, batch, or department is missing. Please set them.");
+                return;
+            }
 
-    try {
-        const response = await fetch("/mark-attendance", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ eventName, rollNumbers }),
-        });
+            const rollNumbers = storedData.map((data) => data.rollNo);
 
-        const result = await response.json(); // Parse JSON response
+            try {
+                const response = await fetch("/mark-attendance", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({ eventName, batches, departments, rollNumbers }),
+                });
 
-        if (response.ok) {
-            console.log("Attendance marked successfully:", result);
-            alert(result.message); // Use the message from the server
-        } else {
-            console.error("Failed to mark attendance:", result.error);
-            alert(`Failed to mark attendance: ${result.error}`); // Use the error message from the server
+                const result = await response.json();
+
+                if (response.ok) {
+                    console.log("Attendance marked successfully:", result);
+                    alert(result.message);
+                } else {
+                    console.error("Failed to mark attendance:", result.error);
+                    alert(`Failed to mark attendance: ${result.error}`);
+                }
+            } catch (error) {
+                console.error("Error marking attendance:", error);
+                alert("Error marking attendance. Please check the console for details.");
+            }
         }
-    } catch (error) {
-        console.error("Error marking attendance:", error);
-        alert("Error marking attendance. Please check the console for details.");
-    }
-}
     </script>
 </body>
 </html>
