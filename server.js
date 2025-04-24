@@ -186,22 +186,17 @@ app.post("/upload-excel", upload.single("file"), async (req, res) => {
             return res.status(400).send("❌ No valid data found in the Excel file.");
         }
 
-        const results = [];
+        const qrResults = [];
+        const dbResults = [];
+
+        // Part 1: QR Code Generation
         for (let student of students) {
             try {
                 // Check if the QR code already exists in the QRModel
                 const existingQR = await QRModel.findOne({ rollNo: student.rollNo });
                 if (existingQR) {
                     console.warn(`⚠️ QR Code already exists for Roll No: ${student.rollNo}`);
-                    results.push({ rollNo: student.rollNo, status: "skipped", error: "QR Code already exists" });
-                    continue;
-                }
-
-                // Check if the student already exists in the StudentModel
-                const existingStudent = await StudentModel.findOne({ rollNo: student.rollNo });
-                if (existingStudent) {
-                    console.warn(`⚠️ Student already exists for Roll No: ${student.rollNo}`);
-                    results.push({ rollNo: student.rollNo, status: "skipped", error: "Student already exists" });
+                    qrResults.push({ rollNo: student.rollNo, status: "skipped", error: "QR Code already exists" });
                     continue;
                 }
 
@@ -219,6 +214,25 @@ app.post("/upload-excel", upload.single("file"), async (req, res) => {
                     qrCodeUrl,
                 });
 
+                console.log(`✅ QR Code generated for Roll No: ${student.rollNo}`);
+                qrResults.push({ rollNo: student.rollNo, status: "success", qrCodeUrl });
+            } catch (err) {
+                console.error(`❌ Error generating QR Code for Roll No: ${student.rollNo}`, err.message);
+                qrResults.push({ rollNo: student.rollNo, status: "error", error: err.message });
+            }
+        }
+
+        // Part 2: Database Storage
+        for (let student of students) {
+            try {
+                // Check if the student already exists in the StudentModel
+                const existingStudent = await StudentModel.findOne({ rollNo: student.rollNo });
+                if (existingStudent) {
+                    console.warn(`⚠️ Student already exists for Roll No: ${student.rollNo}`);
+                    dbResults.push({ rollNo: student.rollNo, status: "skipped", error: "Student already exists" });
+                    continue;
+                }
+
                 // Extract batch year from roll number
                 const batchYear = `20${student.rollNo.substring(0, 2)}`;
 
@@ -233,18 +247,19 @@ app.post("/upload-excel", upload.single("file"), async (req, res) => {
                 };
                 const savedStudent = await StudentModel.create(studentDataForDB);
 
-                // Log the saved student data
-                console.log(`✅ Student data saved in DB:`, savedStudent);
-
-                console.log(`✅ QR Code generated and student data saved for Roll No: ${student.rollNo}`);
-                results.push({ rollNo: student.rollNo, status: "success", qrCodeUrl });
+                console.log(`✅ Student data saved in DB for Roll No: ${student.rollNo}`);
+                dbResults.push({ rollNo: student.rollNo, status: "success", data: savedStudent });
             } catch (err) {
-                console.error(`❌ Error processing Roll No: ${student.rollNo}`, err.message);
-                results.push({ rollNo: student.rollNo, status: "error", error: err.message });
+                console.error(`❌ Error saving student data for Roll No: ${student.rollNo}`, err.message);
+                dbResults.push({ rollNo: student.rollNo, status: "error", error: err.message });
             }
         }
 
-        res.status(200).json({ message: "Excel processed", results });
+        res.status(200).json({
+            message: "Excel processed",
+            qrResults,
+            dbResults,
+        });
     } catch (err) {
         console.error("❌ Error processing Excel file:", err);
         res.status(500).send("❌ Error processing Excel file.");
