@@ -7,7 +7,7 @@ const StudentSchema = new mongoose.Schema({
     college: { type: String, required: true },
     section: { type: String, required: true },
     batchYear: { type: String, required: true },
-    events: { type: Map, of: String }, // Map to store event attendance (eventName: "absent" or "present")
+    events: { type: Map, of: String }, // Map to store event attendance (eventName: "present" or "absent")
 });
 
 module.exports = mongoose.model("Student", StudentSchema);

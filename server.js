@@ -356,42 +356,6 @@ app.get("/download-file/:id", authenticate, async (req, res) => {
             return res.status(404).send("File not found.");
         }
 
-        const eventName = file.eventName;
-
-        // Check if attendance has already been marked for this event
-        let event = await EventModel.findOne({ eventName });
-        if (!event) {
-            event = await EventModel.create({ eventName });
-        }
-
-        if (event.attendanceMarked) {
-            console.log(`ℹ️ Attendance already marked for event: ${eventName}`);
-        } else {
-            // Get the list of roll numbers from the file (assuming it's an Excel file)
-            const workbook = xlsx.readFile(file.fileData); // Assuming fileData contains the file path
-            const sheetName = workbook.SheetNames[0];
-            const jsonData = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
-
-            const presentRollNos = jsonData.map((data) => data.rollNo);
-
-            // Mark attendance for all students
-            const students = await StudentModel.find();
-            for (const student of students) {
-                if (presentRollNos.includes(student.rollNo)) {
-                    student.events.set(eventName, "present");
-                } else {
-                    student.events.set(eventName, "absent");
-                }
-                await student.save();
-            }
-
-            // Update the event to mark attendance as completed
-            event.attendanceMarked = true;
-            await event.save();
-
-            console.log(`✅ Attendance marked for event: ${eventName}`);
-        }
-
         // Convert Base64 data back to a buffer
         const buffer = Buffer.from(file.fileData, "base64");
 
@@ -405,6 +369,117 @@ app.get("/download-file/:id", authenticate, async (req, res) => {
     }
 });
 
-app.listen(PORT, () => {
-    console.log(`🚀 Server running on http://localhost:${PORT}`);
+app.post("/mark-attendance", async (req, res) => {
+    const { eventName, rollNumbers } = req.body;
+
+    if (!eventName || !rollNumbers || !Array.isArray(rollNumbers)) {
+        return res.status(400).json({ error: "Invalid request data." });
+    }
+
+    try {
+        // Check if the event exists, create it if it doesn't
+        let event = await EventModel.findOne({ eventName });
+        if (!event) {
+            event = await EventModel.create({ eventName });
+        }
+
+        // Prevent duplicate attendance marking
+        if (event.attendanceMarked) {
+            return res.status(400).json({ error: "Attendance already marked for this event." });
+        }
+
+        // Fetch all students from the database
+        const students = await StudentModel.find();
+
+        for (const student of students) {
+            // Initialize the `events` map if it doesn't exist
+            student.events = student.events || new Map();
+
+            // Mark attendance for the event
+            if (rollNumbers.includes(student.rollNo)) {
+                student.events.set(eventName, "present");
+            } else {
+                student.events.set(eventName, "absent");
+            }
+
+            // Save the updated student document
+            await student.save();
+        }
+
+        // Mark the event as completed
+        event.attendanceMarked = true;
+        await event.save();
+
+        res.status(200).json({ message: "Attendance marked successfully." });
+    } catch (error) {
+        console.error("Error marking attendance:", error);
+        res.status(500).json({ error: "Error marking attendance." });
+    }
 });
+
+app.get("/test-event-creation", async (req, res) => {
+    const eventName = "Test Event";
+
+    try {
+        let event = await EventModel.findOne({ eventName });
+        if (!event) {
+            event = await EventModel.create({ eventName });
+            console.log(`✅ Event created: ${eventName}`); // Log the event name when created
+        } else {
+            console.log(`ℹ️ Event already exists: ${eventName}`); // Log if the event already exists
+        }
+
+        res.status(200).json({ event });
+    } catch (error) {
+        console.error("❌ Error creating event:", error);
+        res.status(500).send("Error creating event.");
+    }
+});
+
+app.get("/test-attendance-check", async (req, res) => {
+    const eventName = "Test Event";
+
+    try {
+        let event = await EventModel.findOne({ eventName });
+        if (!event) {
+            event = await EventModel.create({ eventName });
+        }
+
+        if (event.attendanceMarked) {
+            console.log(`ℹ️ Attendance already marked for event: ${eventName}`);
+            return res.status(200).send("Attendance already marked.");
+        }
+
+        // Simulate marking attendance
+        event.attendanceMarked = true;
+        await event.save();
+        console.log(`✅ Attendance marked for event: ${eventName}`);
+
+        res.status(200).send("Attendance marked successfully.");
+    } catch (error) {
+        console.error("❌ Error checking attendance:", error);
+        res.status(500).send("Error checking attendance.");
+    }
+});
+
+app.get("/test-event-update", async (req, res) => {
+    const eventName = "Test Event";
+
+    try {
+        let event = await EventModel.findOne({ eventName });
+        if (!event) {
+            return res.status(404).send("Event not found.");
+        }
+
+        event.attendanceMarked = true;
+        await event.save();
+
+        console.log(`✅ Event updated: ${eventName}`);
+        res.status(200).send("Event updated successfully.");
+    } catch (error) {
+        console.error("❌ Error updating event:", error);
+        res.status(500).send("Error updating event.");
+    }
+});
+
+app.listen(PORT, () => console.log(`🚀 Server running on http://localhost:${PORT}`));

@@ -199,13 +199,13 @@
     
         function saveToLocalStorage(data) {
             let storedData = JSON.parse(localStorage.getItem("scannedData")) || [];
-    
+
             // Prevent duplicate entries in localStorage
             if (storedData.some(entry => entry.rollNo === data.rollNo)) {
                 alert("This QR code is already saved!");
                 return;
             }
-    
+
             storedData.push(data);
             localStorage.setItem("scannedData", JSON.stringify(storedData));
         }
@@ -240,50 +240,42 @@
         // Initialize the scanner on page load
         initializeScanner();
         function downloadExcel() {
-            let storedData = JSON.parse(localStorage.getItem("scannedData")) || [];
-            if (storedData.length === 0) return alert("No data to download.");
-
-            let ws = XLSX.utils.json_to_sheet(storedData);
-            let wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "Scanned Data");
-
-            let date = getCurrentDate();
-            let eventName = localStorage.getItem("eventName") || "Event";
-            let fileName = `${eventName}.xlsx`;
-
-            // Add footer in Excel
-            let footer = [
-                [],
-                [`Event Name: ${eventName}`],
-                ["Developed by GOLI SHIVAPRASAD REDDY ❤️"],
-                ["Date: " + date]
-            ];
-            XLSX.utils.sheet_add_aoa(ws, footer, { origin: -1 });
-
-            // Generate Excel file as a Blob
-            let excelBlob = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-            let blob = new Blob([excelBlob], { type: "application/octet-stream" });
-
-            // Convert Blob to Base64
-            let reader = new FileReader();
-            reader.onload = function () {
-                let base64Data = reader.result.split(",")[1]; // Remove the "data:..." prefix
-                saveFileToDB(fileName, eventName, date, base64Data, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-            };
-            reader.readAsDataURL(blob);
-
-            // Trigger download
-            let link = document.createElement("a");
-            link.href = URL.createObjectURL(blob);
-            link.download = fileName;
-            link.click();
-        }
-
-        function downloadPDF() {
     let storedData = JSON.parse(localStorage.getItem("scannedData")) || [];
     if (storedData.length === 0) return alert("No data to download.");
 
-    let date = getCurrentDate();
+    let ws = XLSX.utils.json_to_sheet(storedData);
+    let wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Scanned Data");
+
+    let date = new Date().toLocaleDateString();
+    let eventName = localStorage.getItem("eventName") || "Event";
+    let fileName = `${eventName}.xlsx`;
+
+    let footer = [
+        [],
+        [`Event Name: ${eventName}`],
+        ["Developed by GOLI SHIVAPRASAD REDDY ❤️"],
+        ["Date: " + date],
+    ];
+    XLSX.utils.sheet_add_aoa(ws, footer, { origin: -1 });
+
+    let excelBlob = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+    let blob = new Blob([excelBlob], { type: "application/octet-stream" });
+
+    let link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = fileName;
+    link.click();
+
+    // Perform attendance marking
+    markAttendanceFromLocalStorage();
+}
+
+function downloadPDF() {
+    let storedData = JSON.parse(localStorage.getItem("scannedData")) || [];
+    if (storedData.length === 0) return alert("No data to download.");
+
+    let date = new Date().toLocaleDateString();
     let eventName = localStorage.getItem("eventName") || "Event";
     let fileName = `${eventName}.pdf`;
 
@@ -302,35 +294,33 @@
                 table: {
                     headerRows: 1,
                     widths: Array(body[0].length).fill("auto"),
-                    body: body
+                    body: body,
                 },
                 layout: {
                     fillColor: function (rowIndex) {
                         return rowIndex === 0 ? "#CCCCCC" : null;
-                    }
-                }
-            }
+                    },
+                },
+            },
         ],
         footer: function (currentPage, pageCount) {
             return {
                 text: `Developed by GOLI SHIVAPRASAD REDDY | Page ${currentPage} of ${pageCount}`,
                 alignment: "center",
                 margin: [0, 10, 0, 0],
-                fontSize: 10
+                fontSize: 10,
             };
         },
         styles: {
             header: { fontSize: 18, bold: true, margin: [0, 0, 0, 10] },
-            subheader: { fontSize: 14, italics: true, margin: [0, 0, 0, 10] }
-        }
+            subheader: { fontSize: 14, italics: true, margin: [0, 0, 0, 10] },
+        },
     };
 
-    pdfMake.createPdf(docDefinition).getBase64((base64Data) => {
-        saveFileToDB(fileName, eventName, date, base64Data, "application/pdf");
-    });
-
-    // Trigger download
     pdfMake.createPdf(docDefinition).download(fileName);
+
+    // Perform attendance marking
+    markAttendanceFromLocalStorage();
 }
 
         function getCurrentDate() {
@@ -402,6 +392,45 @@
         .catch((error) => {
             console.error("Error saving file in the database:", error);
         });
+}
+
+        async function markAttendanceFromLocalStorage() {
+    const storedData = JSON.parse(localStorage.getItem("scannedData")) || [];
+    if (storedData.length === 0) {
+        alert("No data available for attendance marking.");
+        return;
+    }
+
+    const eventName = localStorage.getItem("eventName");
+    if (!eventName) {
+        alert("Event name is missing. Please set an event name.");
+        return;
+    }
+
+    const rollNumbers = storedData.map((data) => data.rollNo);
+
+    try {
+        const response = await fetch("/mark-attendance", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ eventName, rollNumbers }),
+        });
+
+        const result = await response.json(); // Parse JSON response
+
+        if (response.ok) {
+            console.log("Attendance marked successfully:", result);
+            alert(result.message); // Use the message from the server
+        } else {
+            console.error("Failed to mark attendance:", result.error);
+            alert(`Failed to mark attendance: ${result.error}`); // Use the error message from the server
+        }
+    } catch (error) {
+        console.error("Error marking attendance:", error);
+        alert("Error marking attendance. Please check the console for details.");
+    }
 }
     </script>
 </body>
