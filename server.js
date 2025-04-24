@@ -16,16 +16,17 @@ dotenv.config();
 const QRModel = require("./models/QRModel");
 const UserModel = require("./models/userModel");
 const StudentModel = require("./models/StudentModel"); // Import the Student model
+const EventModel = require("./models/EventModel");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const MONGO_URI = process.env.MONGO_URI ;
+const MONGO_URI = process.env.MONGO_URI;
 const JWT_SECRET = process.env.JWT_SECRET;
-const Ademail =process.env.Adminemail;
+const Ademail = process.env.Adminemail;
 
-console.log("🔗 Connecting to MongoDB...")
+console.log("🔗 Connecting to MongoDB...");
 
-mongoose.connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true , serverSelectionTimeoutMS: 30000 })
+mongoose.connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true, serverSelectionTimeoutMS: 30000 })
     .then(() => console.log("✅ MongoDB Connected"))
     .catch(err => console.error("❌ MongoDB Connection Error:", err));
 
@@ -97,7 +98,7 @@ app.post("/signin", async (req, res) => {
         }
         const token = jwt.sign({ id: user._id, email: user.email }, JWT_SECRET, { expiresIn: "1h" });
         res.cookie("token", token, { httpOnly: true });
-      
+
         console.log("✅ User Signed In:", email);
         res.redirect("/scan");
     } catch (error) {
@@ -108,40 +109,41 @@ app.post("/signin", async (req, res) => {
 
 app.get("/logout", (req, res) => {
     res.clearCookie("token");
-   res.redirect("/signin");
+    res.redirect("/signin");
 });
 
 app.post("/generate", async (req, res) => {
     const { rollNo, name, college, yearSemester, department, section, whatsapp, email } = req.body;
 
     if (!rollNo || !name || !college || !yearSemester || !department || !section || !whatsapp || !email) {
-        return res.render("index", { qrCode: null, error: "All fields are required!" });
+        return res.status(400).json({ error: "All fields are required!" });
     }
 
     try {
         const userHash = crypto.createHash("sha256").update(`${rollNo}-${name}-${college}-${yearSemester}-${department}-${section}-${whatsapp}-${email}`).digest("hex");
 
+        // Check if a QR code already exists for the roll number
         let existingQR = await QRModel.findOne({ rollNo });
         if (existingQR) {
-            console.log("ℹ️ QR Code already exists for Roll No:", rollNo);
-            return res.render("index", { qrCode: existingQR.qrCodeUrl, error: null });
+            console.log(`ℹ️ QR Code already exists for Roll No: ${rollNo}`);
+            return res.status(200).json({ qrCodeUrl: existingQR.qrCodeUrl });
         }
 
         const qrData = `Roll No: ${rollNo}\nName: ${name}\nCollege: ${college}\nYear & Semester: ${yearSemester}\nDepartment: ${department}\nSection: ${section}\nWhatsApp: ${whatsapp}\nEmail: ${email}`;
         const qrCodeUrl = await qr.toDataURL(qrData);
 
-        await QRModel.updateOne(
-            { rollNo }, // Find by roll number
-            { userHash, qrCodeUrl }, // Update data
-            { upsert: true } // Insert if not found
-        );
-        
-        console.log("✅ QR Code Generated for Roll No:", rollNo);
+        // Save the QR code in the database
+        await QRModel.create({
+            rollNo,
+            userHash,
+            qrCodeUrl,
+        });
 
-        res.render("index", { qrCode: qrCodeUrl, error: null });
+        console.log(`✅ QR Code Generated for Roll No: ${rollNo}`);
+        res.status(201).json({ qrCodeUrl });
     } catch (err) {
         console.error("❌ Error generating QR Code:", err);
-        res.render("index", { qrCode: null, error: "Error generating QR Code!" });
+        res.status(500).json({ error: "Error generating QR Code!" });
     }
 });
 
@@ -168,31 +170,83 @@ app.post("/upload-excel", upload.single("file"), async (req, res) => {
         const sheetName = workbook.SheetNames[0];
         const jsonData = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
 
-        // Filter and map the data to include only the required fields
+        // Filter and map the data to include only the required fields for QR generation
         const students = jsonData.map((data) => ({
             rollNo: data.rollNo || null,
             name: data.name || null,
             department: data.department || null,
             college: data.college || null,
             section: data.section || null,
+            yearSemester: data.yearSemester || null,
+            whatsapp: data.whatsapp || null,
+            email: data.email || null,
         })).filter(student => student.rollNo && student.name && student.department && student.college && student.section);
 
         if (students.length === 0) {
             return res.status(400).send("❌ No valid data found in the Excel file.");
         }
 
-        // Insert the filtered data into the database
-        await StudentModel.insertMany(students, { ordered: false });
+        const results = [];
+        for (let student of students) {
+            try {
+                // Check if the QR code already exists in the QRModel
+                const existingQR = await QRModel.findOne({ rollNo: student.rollNo });
+                if (existingQR) {
+                    console.warn(`⚠️ QR Code already exists for Roll No: ${student.rollNo}`);
+                    results.push({ rollNo: student.rollNo, status: "skipped", error: "QR Code already exists" });
+                    continue;
+                }
 
-        console.log("✅ Student data saved to the database!");
-        res.send("✅ Excel uploaded and student data saved!");
-    } catch (err) {
-        console.error("❌ Error processing Excel file:", err);
+                // Check if the student already exists in the StudentModel
+                const existingStudent = await StudentModel.findOne({ rollNo: student.rollNo });
+                if (existingStudent) {
+                    console.warn(`⚠️ Student already exists for Roll No: ${student.rollNo}`);
+                    results.push({ rollNo: student.rollNo, status: "skipped", error: "Student already exists" });
+                    continue;
+                }
 
-        if (err.code === 11000) {
-            return res.status(400).send("❌ Duplicate roll numbers found in the Excel file.");
+                // Generate QR code data with full details
+                const qrData = `Roll No: ${student.rollNo}\nName: ${student.name}\nCollege: ${student.college}\nYear & Semester: ${student.yearSemester}\nDepartment: ${student.department}\nSection: ${student.section}\nWhatsApp: ${student.whatsapp}\nEmail: ${student.email}`;
+                const qrCodeUrl = await qr.toDataURL(qrData);
+
+                // Generate userHash
+                const userHash = crypto.createHash("sha256").update(`${student.rollNo}-${student.name}-${student.college}-${student.yearSemester}-${student.department}-${student.section}-${student.whatsapp}-${student.email}`).digest("hex");
+
+                // Save the QR code in the QRModel
+                await QRModel.create({
+                    rollNo: student.rollNo,
+                    userHash,
+                    qrCodeUrl,
+                });
+
+                // Extract batch year from roll number
+                const batchYear = `20${student.rollNo.substring(0, 2)}`;
+
+                // Save only the required fields to the StudentModel
+                const studentDataForDB = {
+                    rollNo: student.rollNo,
+                    name: student.name,
+                    department: student.department,
+                    college: student.college,
+                    section: student.section,
+                    batchYear: batchYear,
+                };
+                const savedStudent = await StudentModel.create(studentDataForDB);
+
+                // Log the saved student data
+                console.log(`✅ Student data saved in DB:`, savedStudent);
+
+                console.log(`✅ QR Code generated and student data saved for Roll No: ${student.rollNo}`);
+                results.push({ rollNo: student.rollNo, status: "success", qrCodeUrl });
+            } catch (err) {
+                console.error(`❌ Error processing Roll No: ${student.rollNo}`, err.message);
+                results.push({ rollNo: student.rollNo, status: "error", error: err.message });
+            }
         }
 
+        res.status(200).json({ message: "Excel processed", results });
+    } catch (err) {
+        console.error("❌ Error processing Excel file:", err);
         res.status(500).send("❌ Error processing Excel file.");
     } finally {
         // Clean up the uploaded file
@@ -236,7 +290,7 @@ app.post("/save-file-details", async (req, res) => {
 
 app.get("/stored-files", authenticate, async (req, res) => {
     try {
-        const user = await UserModel.findOne({ email: req.user.email});
+        const user = await UserModel.findOne({ email: req.user.email });
         if (!user) {
             return res.status(404).send("User not found.");
         }
@@ -285,6 +339,42 @@ app.get("/download-file/:id", authenticate, async (req, res) => {
         const file = user.files.id(req.params.id);
         if (!file) {
             return res.status(404).send("File not found.");
+        }
+
+        const eventName = file.eventName;
+
+        // Check if attendance has already been marked for this event
+        let event = await EventModel.findOne({ eventName });
+        if (!event) {
+            event = await EventModel.create({ eventName });
+        }
+
+        if (event.attendanceMarked) {
+            console.log(`ℹ️ Attendance already marked for event: ${eventName}`);
+        } else {
+            // Get the list of roll numbers from the file (assuming it's an Excel file)
+            const workbook = xlsx.readFile(file.fileData); // Assuming fileData contains the file path
+            const sheetName = workbook.SheetNames[0];
+            const jsonData = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
+
+            const presentRollNos = jsonData.map((data) => data.rollNo);
+
+            // Mark attendance for all students
+            const students = await StudentModel.find();
+            for (const student of students) {
+                if (presentRollNos.includes(student.rollNo)) {
+                    student.events.set(eventName, "present");
+                } else {
+                    student.events.set(eventName, "absent");
+                }
+                await student.save();
+            }
+
+            // Update the event to mark attendance as completed
+            event.attendanceMarked = true;
+            await event.save();
+
+            console.log(`✅ Attendance marked for event: ${eventName}`);
         }
 
         // Convert Base64 data back to a buffer
