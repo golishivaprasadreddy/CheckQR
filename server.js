@@ -59,6 +59,9 @@ const authenticate = (req, res, next) => {
 app.get("/", (req, res) => {
     res.render("index", { qrCode: null, error: null });
 });
+app.get("/attendance", (req, res) => {
+    res.render("attendance");
+});
 
 app.get("/get-qr", async (req, res) => {
     const { rollNo } = req.query;
@@ -407,7 +410,7 @@ app.post("/mark-attendance", async (req, res) => {
             if (rollNumbers.includes(student.rollNo)) {
                 student.events.set(eventName, "present");
             } else {
-                continue; // Skip marking absent for students not in rollNumbers
+                student.events.set(eventName, "absent");
             }
 
             // Save the updated student document
@@ -489,5 +492,25 @@ app.get("/test-event-update", async (req, res) => {
         res.status(500).send("Error updating event.");
     }
 });
+app.get("/get-attendance", async (req, res) => {
+    try {
+        // Fetch all students with their attendance data
+        const students = await StudentModel.find();
 
+        // Format the data to include attendance for all events
+        const attendanceData = students.map((student) => ({
+            rollNo: student.rollNo,
+            name: student.name,
+            department: student.department,
+            batchYear: student.batchYear,
+            events: Object.fromEntries(student.events || []), // Convert Map to Object
+        }));
+
+        res.status(200).json({ attendanceData });
+    } catch (error) {
+        console.error("Error fetching attendance data:", error);
+        res.status(500).json({ error: "Error fetching attendance data." });
+    }
+});
+ 
 app.listen(PORT, () => console.log(`🚀 Server running on http://localhost:${PORT}`));

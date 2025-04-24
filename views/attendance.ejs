@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Attendance Table</title>
+
+    <!-- Required Libraries -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+
+<body class="bg-gradient-to-br from-purple-500 to-red-500 flex flex-col items-center justify-center min-h-screen p-6">
+
+    <div class="bg-white shadow-2xl rounded-2xl p-6 w-full max-w-6xl text-center transform transition-all duration-300 hover:scale-105">
+        <h2 class="text-4xl font-extrabold text-gray-800 mb-6">📋 Attendance Table</h2>
+
+        <!-- Filters -->
+        <div class="flex flex-wrap justify-center gap-4 mb-6 bg-white p-4 rounded-lg shadow-md">
+            <!-- Search Bar -->
+            <div class="flex flex-col items-center">
+                <label for="searchInput" class="text-gray-700 font-semibold mb-2">Search</label>
+                <input 
+                    type="text" 
+                    id="searchInput" 
+                    placeholder="Search by Roll No or Name" 
+                    class="p-3 border rounded-md text-center bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300 w-64"
+                    oninput="applySearch()"
+                />
+            </div>
+
+            <!-- Batch Filter -->
+            <div class="flex flex-col items-center">
+                <label for="filterBatch" class="text-gray-700 font-semibold mb-2">Batch</label>
+                <select id="filterBatch" class="p-3 border rounded-md text-center bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300 w-48">
+                    <option value="">All Batches</option>
+                    <option value="2021">2021</option>
+                    <option value="2022">2022</option>
+                    <option value="2023">2023</option>
+                    <option value="2024">2024</option>
+                    <option value="2025">2025</option>
+                </select>
+            </div>
+
+            <!-- Department Filter -->
+            <div class="flex flex-col items-center">
+                <label for="filterDepartment" class="text-gray-700 font-semibold mb-2">Department</label>
+                <select id="filterDepartment" class="p-3 border rounded-md text-center bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300 w-48">
+                    <option value="">All Departments</option>
+                    <option value="CSE">CSE</option>
+                    <option value="ECE">ECE</option>
+                    <option value="EEE">EEE</option>
+                    <option value="CSM">CSM</option>
+                    <option value="CSD">CSD</option>
+                    <option value="IT">IT</option>
+                    <option value="CIVIL">CIVIL</option>
+                    <option value="MECH">MECH</option>
+                </select>
+            </div>
+
+            <!-- Filter Buttons -->
+            <div class="flex flex-col items-center">
+                <label class="text-gray-700 font-semibold mb-2 invisible">Actions</label>
+                <div class="flex gap-2">
+                    <button onclick="applyFilters()" class="bg-blue-500 text-white px-4 py-2 rounded-lg shadow-md hover:bg-blue-700 transform transition-all hover:scale-105">
+                        Apply Filters
+                    </button>
+                    <button onclick="resetFilters()" class="bg-gray-500 text-white px-4 py-2 rounded-lg shadow-md hover:bg-gray-700 transform transition-all hover:scale-105">
+                        Reset
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Attendance Data Table -->
+        <div id="attendance-data-container" class="mt-6">
+            <div class="overflow-x-auto rounded-lg shadow-lg">
+                <table class="w-full border-collapse border border-gray-200 shadow-md rounded-lg bg-white">
+                    <thead id="attendance-data-header" class="bg-gradient-to-r from-green-500 to-green-700 text-white text-md">
+                        <!-- Dynamic headers will be added here -->
+                    </thead>
+                    <tbody id="attendance-data-table" class="bg-gray-50 text-gray-800">
+                        <!-- Dynamic rows will be added here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+         <!-- Download Button -->
+         <div class="flex justify-center gap-4 mt-4">
+            <button onclick="downloadExcel()" class="bg-green-500 text-white px-4 py-2 rounded-lg shadow-md hover:bg-green-700 transform transition-all hover:scale-105">
+                Download as Excel
+            </button>
+        </div>
+        <!-- Go Back Button -->
+        <button onclick="window.history.back();" class="mt-2 bg-gray-500 text-white px-4 py-2 rounded-lg shadow-md hover:bg-gray-600 transform transition-all hover:scale-105">
+            ⬅️ Go Back
+    </div>
+
+    <!-- Footer -->
+    <footer class="mt-8 text-center text-white text-lg font-semibold">
+        Developed by <span class="font-bold">GOLI SHIVAPRASAD REDDY</span> ❤️
+    </footer>
+
+    <script>
+        let attendanceData = []; // Store fetched data globally
+
+        async function fetchAttendanceData() {
+            try {
+                const response = await fetch("/get-attendance");
+                const result = await response.json();
+
+                if (response.ok) {
+                    console.log("Attendance data fetched successfully:", result);
+                    attendanceData = result.attendanceData;
+                    populateAttendanceTable(attendanceData);
+                } else {
+                    console.error("Failed to fetch attendance data:", result.error);
+                }
+            } catch (error) {
+                console.error("Error fetching attendance data:", error);
+            }
+        }
+
+        function populateAttendanceTable(data) {
+            const tableHeader = document.getElementById("attendance-data-header");
+            const tableBody = document.getElementById("attendance-data-table");
+
+            tableHeader.innerHTML = ""; // Clear previous headers
+            tableBody.innerHTML = ""; // Clear previous rows
+
+            // Extract unique event names from the data
+            const eventNames = new Set();
+            data.forEach((student) => {
+                Object.keys(student.events).forEach((eventName) => {
+                    eventNames.add(eventName);
+                });
+            });
+
+            // Create table headers
+            let headerRow = `
+                <tr>
+                    <th class="px-3 py-2">Roll No</th>
+                    <th class="px-3 py-2">Name</th>
+                    <th class="px-3 py-2">Department</th>
+                    <th class="px-3 py-2">Batch</th>
+                    <th class="px-3 py-2">Attended/Total Events</th>
+            `;
+            eventNames.forEach((eventName) => {
+                headerRow += `<th class="px-3 py-2">${eventName}</th>`;
+            });
+            headerRow += `</tr>`;
+            tableHeader.innerHTML = headerRow;
+
+            // Create table rows
+            data.forEach((student) => {
+                const totalEvents = eventNames.size;
+                const attendedEvents = Object.values(student.events).filter((status) => status === "present").length;
+
+                let row = `
+                    <tr class="border-b border-gray-300 bg-white hover:bg-gray-100">
+                        <td class="px-3 py-2">${student.rollNo}</td>
+                        <td class="px-3 py-2">${student.name}</td>
+                        <td class="px-3 py-2">${student.department}</td>
+                        <td class="px-3 py-2">${student.batchYear}</td>
+                        <td class="px-3 py-2">${attendedEvents}/${totalEvents}</td>
+                `;
+                eventNames.forEach((eventName) => {
+                    const attendance = student.events[eventName] || "N/A"; // Default to "N/A" if no attendance data
+                    row += `<td class="px-3 py-2">${attendance}</td>`;
+                });
+                row += `</tr>`;
+                tableBody.insertAdjacentHTML("beforeend", row);
+            });
+        }
+
+        function applyFilters() {
+            const filterBatch = document.getElementById("filterBatch").value;
+            const filterDepartment = document.getElementById("filterDepartment").value;
+
+            const filteredData = attendanceData.filter((student) => {
+                const matchesBatch = filterBatch ? student.batchYear === filterBatch : true;
+                const matchesDepartment = filterDepartment ? student.department === filterDepartment : true;
+                return matchesBatch && matchesDepartment;
+            });
+
+            populateAttendanceTable(filteredData);
+        }
+
+        function applySearch() {
+            const searchInput = document.getElementById("searchInput").value.toLowerCase();
+
+            const filteredData = attendanceData.filter((student) => {
+                const matchesRollNo = student.rollNo.toLowerCase().includes(searchInput);
+                const matchesName = student.name.toLowerCase().includes(searchInput);
+                return matchesRollNo || matchesName;
+            });
+
+            populateAttendanceTable(filteredData);
+        }
+
+        function resetFilters() {
+            document.getElementById("filterBatch").value = "";
+            document.getElementById("filterDepartment").value = "";
+            document.getElementById("searchInput").value = "";
+            populateAttendanceTable(attendanceData);
+        }
+
+        function downloadExcel() {
+            // Prepare the data for Excel
+            const tableData = [];
+            const headers = ["Roll No", "Name", "Department", "Batch", "Attended/Total Events"];
+
+            // Extract unique event names
+            const eventNames = new Set();
+            attendanceData.forEach((student) => {
+                Object.keys(student.events).forEach((eventName) => {
+                    eventNames.add(eventName);
+                });
+            });
+
+            // Add event names to headers
+            headers.push(...eventNames);
+
+            // Add headers to the table data
+            tableData.push(headers);
+
+            // Add rows to the table data
+            attendanceData.forEach((student) => {
+                const totalEvents = eventNames.size;
+                const attendedEvents = Object.values(student.events).filter((status) => status === "present").length;
+
+                const row = [
+                    student.rollNo,
+                    student.name,
+                    student.department,
+                    student.batchYear,
+                    `${attendedEvents}/${totalEvents}`,
+                ];
+
+                // Add attendance for each event
+                eventNames.forEach((eventName) => {
+                    row.push(student.events[eventName] || "N/A");
+                });
+
+                tableData.push(row);
+            });
+
+            // Create a worksheet and workbook
+            const worksheet = XLSX.utils.aoa_to_sheet(tableData);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Attendance");
+
+            // Download the Excel file
+            XLSX.writeFile(workbook, "Attendance.xlsx");
+        }
+
+        // Call the function to fetch and display attendance data
+        fetchAttendanceData();
+    </script>
+</body>
+</html>
