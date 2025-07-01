@@ -26,7 +26,7 @@ const Ademail = process.env.Adminemail;
 
 console.log("🔗 Connecting to MongoDB...");
 
-mongoose.connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true, serverSelectionTimeoutMS: 30000 })
+mongoose.connect(MONGO_URI, { serverSelectionTimeoutMS: 30000 })
     .then(() => console.log("✅ MongoDB Connected"))
     .catch(err => console.error("❌ MongoDB Connection Error:", err));
 
@@ -57,6 +57,16 @@ const authenticate = (req, res, next) => {
 };
 
 app.get("/", (req, res) => {
+    // Check if user is authenticated
+    const token = req.cookies.token;
+    if (token) {
+        try {
+            jwt.verify(token, JWT_SECRET);
+            return res.redirect("/scan"); // Redirect authenticated users to scan page
+        } catch (err) {
+            // Invalid token, continue to index page
+        }
+    }
     res.render("index", { qrCode: null, error: null });
 });
 app.get("/attendance", (req, res) => {
@@ -90,19 +100,75 @@ app.get("/fileupload", authenticate, async (req, res) => {
 
 app.get("/signin", (req, res) => res.render("signin"));
 
+app.get("/signup", (req, res) => res.render("signup"));
+
+app.post("/signup", async (req, res) => {
+    const { username, email, password, confirmPassword } = req.body;
+    
+    if (!username || !email || !password || !confirmPassword) {
+        return res.render("signup", { error: "All fields are required!" });
+    }
+    
+    if (password !== confirmPassword) {
+        return res.render("signup", { error: "Passwords do not match!" });
+    }
+    
+    try {
+        // Check if user already exists
+        const existingUser = await UserModel.findOne({ $or: [{ email }, { username }] });
+        if (existingUser) {
+            return res.render("signup", { error: "User already exists with this email or username!" });
+        }
+        
+        // Hash the password
+        const saltRounds = 10;
+        const hashedPassword = await bcrypt.hash(password, saltRounds);
+        
+        // Create new user
+        await UserModel.create({
+            username,
+            email,
+            password: hashedPassword,
+            files: []
+        });
+        
+        console.log("✅ User created successfully:", email);
+        res.redirect("/signin");
+    } catch (error) {
+        console.error("❌ Error creating user:", error);
+        res.render("signup", { error: "Error creating user!" });
+    }
+});
+
 app.post("/signin", async (req, res) => {
     const { email, password } = req.body;
     if (!email || !password) return res.render("signin", { error: "All fields are required!" });
 
     try {
-        const user = await UserModel.findOne({ email });
+        // Find user by email or username
+        const user = await UserModel.findOne({ 
+            $or: [{ email }, { username: email }] 
+        });
+        
         if (!user || !(await bcrypt.compare(password, user.password))) {
-            return res.render("signin", { error: "Invalid email or password!" });
+            return res.render("signin", { error: "Invalid email/username or password!" });
         }
-        const token = jwt.sign({ id: user._id, email: user.email }, JWT_SECRET, { expiresIn: "1h" });
-        res.cookie("token", token, { httpOnly: true });
+        
+        const token = jwt.sign({ 
+            id: user._id, 
+            email: user.email, 
+            username: user.username 
+        }, JWT_SECRET, { expiresIn: "1h" });
+        
+        // Set cookie with proper options
+        res.cookie("token", token, { 
+            httpOnly: true, 
+            secure: false, // Set to true in production with HTTPS
+            sameSite: 'lax',
+            maxAge: 3600000 // 1 hour
+        });
 
-        console.log("✅ User Signed In:", email);
+        console.log("✅ User Signed In:", user.email);
         res.redirect("/scan");
     } catch (error) {
         console.error("❌ Error signing in:", error);
@@ -111,7 +177,12 @@ app.post("/signin", async (req, res) => {
 });
 
 app.get("/logout", (req, res) => {
-    res.clearCookie("token");
+    res.clearCookie("token", {
+        httpOnly: true,
+        secure: false, // Set to true in production with HTTPS
+        sameSite: 'lax'
+    });
+    console.log("✅ User logged out");
     res.redirect("/signin");
 });
 
@@ -123,16 +194,21 @@ app.post("/generate", async (req, res) => {
     }
 
     try {
-        const userHash = crypto.createHash("sha256").update(`${rollNo}-${name}-${college}-${yearSemester}-${department}-${section}-${whatsapp}-${email}`).digest("hex");
+        const currentDate = new Date().toISOString().split("T")[0]; // e.g., "2025-07-01"
 
-        // Check if a QR code already exists for the roll number
-        let existingQR = await QRModel.findOne({ rollNo });
+        const userHash = crypto
+            .createHash("sha256")
+            .update(`${rollNo}-${name}-${college}-${yearSemester}-${department}-${section}-${whatsapp}-${email}-${currentDate}`)
+            .digest("hex");
+
+        // Check if today's QR already exists
+        let existingQR = await QRModel.findOne({ rollNo, date: currentDate });
         if (existingQR) {
-            console.log(`ℹ️ QR Code already exists for Roll No: ${rollNo}`);
+            console.log(`ℹ️ QR Code already exists for Roll No: ${rollNo} on ${currentDate}`);
             return res.status(200).json({ qrCodeUrl: existingQR.qrCodeUrl });
         }
 
-        const qrData = `Roll No: ${rollNo}\nName: ${name}\nCollege: ${college}\nYear & Semester: ${yearSemester}\nDepartment: ${department}\nSection: ${section}\nWhatsApp: ${whatsapp}\nEmail: ${email}`;
+        const qrData = `Date: ${currentDate}\nRoll No: ${rollNo}\nName: ${name}\nCollege: ${college}\nYear & Semester: ${yearSemester}\nDepartment: ${department}\nSection: ${section}\nWhatsApp: ${whatsapp}\nEmail: ${email}`;
         const qrCodeUrl = await qr.toDataURL(qrData);
 
         // Save the QR code in the database
@@ -140,9 +216,10 @@ app.post("/generate", async (req, res) => {
             rollNo,
             userHash,
             qrCodeUrl,
+            date: currentDate, // ✅ Store today's date
         });
 
-        console.log(`✅ QR Code Generated for Roll No: ${rollNo}`);
+        console.log(`✅ QR Code Generated for Roll No: ${rollNo} on ${currentDate}`);
         res.status(201).json({ qrCodeUrl });
     } catch (err) {
         console.error("❌ Error generating QR Code:", err);
@@ -168,12 +245,10 @@ app.post("/upload-excel", upload.single("file"), async (req, res) => {
     try {
         console.log("📂 Excel File Uploaded:", req.file.path);
 
-        // Read the uploaded Excel file
         const workbook = xlsx.readFile(req.file.path);
         const sheetName = workbook.SheetNames[0];
         const jsonData = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
 
-        // Filter and map the data to include only the required fields for QR generation
         const students = jsonData.map((data) => ({
             rollNo: data.rollNo || null,
             name: data.name || null,
@@ -191,55 +266,49 @@ app.post("/upload-excel", upload.single("file"), async (req, res) => {
 
         const qrResults = [];
         const dbResults = [];
+        const currentDate = new Date().toISOString().split("T")[0];
 
-        // Part 1: QR Code Generation
         for (let student of students) {
             try {
-                // Check if the QR code already exists in the QRModel
-                const existingQR = await QRModel.findOne({ rollNo: student.rollNo });
+                // Check if today's QR exists
+                const existingQR = await QRModel.findOne({ rollNo: student.rollNo, date: currentDate });
                 if (existingQR) {
-                    console.warn(`⚠️ QR Code already exists for Roll No: ${student.rollNo}`);
-                    qrResults.push({ rollNo: student.rollNo, status: "skipped", error: "QR Code already exists" });
+                    console.warn(`⚠️ QR already exists for Roll No: ${student.rollNo} on ${currentDate}`);
+                    qrResults.push({ rollNo: student.rollNo, status: "skipped", error: "QR Code already exists for today" });
                     continue;
                 }
 
-                // Generate QR code data with full details
-                const qrData = `Roll No: ${student.rollNo}\nName: ${student.name}\nCollege: ${student.college}\nYear & Semester: ${student.yearSemester}\nDepartment: ${student.department}\nSection: ${student.section}\nWhatsApp: ${student.whatsapp}\nEmail: ${student.email}`;
+                const qrData = `Date: ${currentDate}\nRoll No: ${student.rollNo}\nName: ${student.name}\nCollege: ${student.college}\nYear & Semester: ${student.yearSemester}\nDepartment: ${student.department}\nSection: ${student.section}\nWhatsApp: ${student.whatsapp}\nEmail: ${student.email}`;
                 const qrCodeUrl = await qr.toDataURL(qrData);
 
-                // Generate userHash
-                const userHash = crypto.createHash("sha256").update(`${student.rollNo}-${student.name}-${student.college}-${student.yearSemester}-${student.department}-${student.section}-${student.whatsapp}-${student.email}`).digest("hex");
+                const userHash = crypto.createHash("sha256")
+                    .update(`${student.rollNo}-${student.name}-${student.college}-${student.yearSemester}-${student.department}-${student.section}-${student.whatsapp}-${student.email}-${currentDate}`)
+                    .digest("hex");
 
-                // Save the QR code in the QRModel
                 await QRModel.create({
                     rollNo: student.rollNo,
                     userHash,
                     qrCodeUrl,
+                    date: currentDate,
                 });
 
-                console.log(`✅ QR Code generated for Roll No: ${student.rollNo}`);
+                console.log(`✅ QR Code generated for Roll No: ${student.rollNo} on ${currentDate}`);
                 qrResults.push({ rollNo: student.rollNo, status: "success", qrCodeUrl });
             } catch (err) {
-                console.error(`❌ Error generating QR Code for Roll No: ${student.rollNo}`, err.message);
+                console.error(`❌ QR error for Roll No: ${student.rollNo}`, err.message);
                 qrResults.push({ rollNo: student.rollNo, status: "error", error: err.message });
             }
         }
 
-        // Part 2: Database Storage
         for (let student of students) {
             try {
-                // Check if the student already exists in the StudentModel
                 const existingStudent = await StudentModel.findOne({ rollNo: student.rollNo });
                 if (existingStudent) {
-                    console.warn(`⚠️ Student already exists for Roll No: ${student.rollNo}`);
                     dbResults.push({ rollNo: student.rollNo, status: "skipped", error: "Student already exists" });
                     continue;
                 }
 
-                // Extract batch year from roll number
                 const batchYear = `20${student.rollNo.substring(0, 2)}`;
-
-                // Save only the required fields to the StudentModel
                 const studentDataForDB = {
                     rollNo: student.rollNo,
                     name: student.name,
@@ -248,29 +317,30 @@ app.post("/upload-excel", upload.single("file"), async (req, res) => {
                     section: student.section,
                     batchYear: batchYear,
                 };
-                const savedStudent = await StudentModel.create(studentDataForDB);
 
-                console.log(`✅ Student data saved in DB for Roll No: ${student.rollNo}`);
+                const savedStudent = await StudentModel.create(studentDataForDB);
+                console.log(`✅ Student data saved for Roll No: ${student.rollNo}`);
                 dbResults.push({ rollNo: student.rollNo, status: "success", data: savedStudent });
             } catch (err) {
-                console.error(`❌ Error saving student data for Roll No: ${student.rollNo}`, err.message);
+                console.error(`❌ DB error for Roll No: ${student.rollNo}`, err.message);
                 dbResults.push({ rollNo: student.rollNo, status: "error", error: err.message });
             }
         }
 
         res.status(200).json({
-            message: "Excel processed",
+            message: "Excel processed successfully",
+            date: currentDate,
             qrResults,
             dbResults,
         });
     } catch (err) {
-        console.error("❌ Error processing Excel file:", err);
-        res.status(500).send("❌ Error processing Excel file.");
+        console.error("❌ Excel processing error:", err);
+        res.status(500).send("❌ Server error during Excel processing.");
     } finally {
-        // Clean up the uploaded file
         fs.unlinkSync(req.file.path);
     }
 });
+
 
 app.post("/save-file-details", async (req, res) => {
     const { fileName, eventName, timestamp, email, fileData, fileType } = req.body;

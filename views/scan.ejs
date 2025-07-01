@@ -263,32 +263,39 @@
         }
     
         function onScanSuccess(decodedText) {
-            // Check if the scanned data is already in the Set
-            if (scannedData.has(decodedText)) {
-                // Play duplicate sound if it's a duplicate
-                let duplicateSound = document.getElementById("duplicateSound");
-                duplicateSound.play();
-                setTimeout(() => duplicateSound.pause(), 50); // Stop the sound after 50ms
-    
-                return;
-            }
+    const today = new Date().toISOString().split("T")[0]; // Format: YYYY-MM-DD
 
-            // Play scan sound for successful scans
-            let scanSound = document.getElementById("scanSound");
-            scanSound.play();
-            setTimeout(() => scanSound.pause(), 50); // Stop the sound after 50ms
-    
+    // ✅ Check if already scanned
+    if (scannedData.has(decodedText)) {
+        document.getElementById("duplicateSound").play();
+        return;
+    }
 
-            // Add the scanned data to the Set
-            scannedData.add(decodedText);
+    // ✅ Extract and validate date from QR
+    const dateLine = decodedText.split("\n").find(line => line.toLowerCase().includes("date"));
+    if (!dateLine) {
+        showToast("Invalid QR format: Date missing!", "error");
+        return;
+    }
 
-            let data = parseScannedData(decodedText);
-            if (data) {
-                saveToLocalStorage(data);
-                renderTable();
-            }
-        }
-    
+    const scannedDate = dateLine.split(":")[1]?.trim();
+    if (scannedDate !== today) {
+        showToast(`Invalid Date!\nThis QR is for ${scannedDate}, not ${today}.`, "error");
+        document.getElementById("duplicateSound").play();
+        return;
+    }
+
+    // ✅ Proceed if valid and not duplicate
+    document.getElementById("scanSound").play();
+    scannedData.add(decodedText);
+
+    let data = parseScannedData(decodedText);
+    if (data) {
+        saveToLocalStorage(data);
+        renderTable();
+    }
+}
+
         function parseScannedData(text) {
             let lines = text.split("\n");
             let data = {};
