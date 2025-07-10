@@ -24,6 +24,12 @@ const MONGO_URI = process.env.MONGO_URI;
 const JWT_SECRET = process.env.JWT_SECRET;
 const Ademail = process.env.Adminemail;
 
+// Debug environment variables
+console.log("🔧 Environment Check:");
+console.log("- JWT_SECRET exists:", !!JWT_SECRET);
+console.log("- JWT_SECRET length:", JWT_SECRET ? JWT_SECRET.length : 0);
+console.log("- MONGO_URI exists:", !!MONGO_URI);
+
 console.log("🔗 Connecting to MongoDB...");
 
 mongoose.connect(MONGO_URI, { serverSelectionTimeoutMS: 30000 })
@@ -36,11 +42,21 @@ app.use(cookieParser());
 app.use(express.static(path.join(__dirname, "public")));
 app.set("view engine", "ejs");
 
+// Debug middleware to log cookies
+app.use((req, res, next) => {
+    console.log("🍪 Cookies received:", req.cookies);
+    console.log("🌐 Request URL:", req.url);
+    console.log("📍 User-Agent:", req.headers['user-agent']);
+    next();
+});
+
 const authenticate = (req, res, next) => {
     const token = req.cookies.token;
 
     if (!token) {
-        console.error("❌ No token found in cookies.");
+        console.error("❌ No token found in cookies for URL:", req.url);
+        console.error("🍪 All cookies:", req.cookies);
+        console.error("📍 Headers:", req.headers.cookie || "No cookie header");
         return res.redirect("/signin");
     }
 
@@ -51,7 +67,11 @@ const authenticate = (req, res, next) => {
         next();
     } catch (err) {
         console.error("❌ Invalid or expired token:", err.message);
-        res.clearCookie("token");
+        res.clearCookie("token", {
+            httpOnly: true,
+            secure: false,
+            sameSite: 'lax'
+        });
         return res.redirect("/signin");
     }
 };
@@ -100,6 +120,22 @@ app.get("/fileupload", authenticate, async (req, res) => {
 
 app.get("/signin", (req, res) => res.render("signin"));
 
+// Add a signin success route
+app.get("/signin-success", authenticate, (req, res) => {
+    res.send(`
+        <h1>✅ Signin Successful!</h1>
+        <p>Welcome ${req.user.email}!</p>
+        <p><a href="/scan">Go to Scan Page</a></p>
+        <p><a href="/test-cookies">Check Cookies</a></p>
+        <script>
+            console.log('Cookies in browser:', document.cookie);
+            setTimeout(() => {
+                window.location.href = '/scan';
+            }, 2000);
+        </script>
+    `);
+});
+
 app.get("/signup", (req, res) => res.render("signup"));
 
 app.post("/signup", async (req, res) => {
@@ -141,6 +177,7 @@ app.post("/signup", async (req, res) => {
 });
 
 app.post("/signin", async (req, res) => {
+    console.log("🔐 Signin attempt:", req.body.email);
     const { email, password } = req.body;
     if (!email || !password) return res.render("signin", { error: "All fields are required!" });
 
@@ -151,7 +188,127 @@ app.post("/signin", async (req, res) => {
         });
         
         if (!user || !(await bcrypt.compare(password, user.password))) {
+            console.log("❌ Invalid credentials for:", email);
             return res.render("signin", { error: "Invalid email/username or password!" });
+        }
+        
+        console.log("🔑 Creating JWT token for user:", user.email);
+        console.log("🔧 JWT_SECRET being used:", JWT_SECRET ? "EXISTS" : "MISSING");
+        
+        const token = jwt.sign({ 
+            id: user._id, 
+            email: user.email, 
+            username: user.username 
+        }, JWT_SECRET, { expiresIn: "1h" });
+        
+        console.log("🍪 Token created successfully:", token ? "YES" : "NO");
+        console.log("🍪 Token length:", token ? token.length : 0);
+        console.log("🍪 Setting cookie with token:", token.substring(0, 20) + "...");
+        
+        // Set cookie with proper options - ONLY ONE METHOD
+        res.cookie("token", token, { 
+            httpOnly: true, 
+            secure: false, // Set to true in production with HTTPS
+            sameSite: 'lax',
+            maxAge: 3600000, // 1 hour
+            path: '/' // Ensure cookie is available for all paths
+        });
+
+        console.log("✅ Cookie set using res.cookie() method");
+        console.log("✅ User Signed In:", user.email);
+        console.log("🍪 About to redirect to /signin-success");
+        
+        // Instead of redirect, let's try a different approach
+        // Add a small delay and check if we can read the cookie
+        setTimeout(() => {
+            console.log("⏰ Delayed check - cookies should be set now");
+        }, 100);
+        
+        res.redirect("/signin-success");
+    } catch (error) {
+        console.error("❌ Error signing in:", error);
+        res.render("signin", { error: "Error signing in!" });
+    }
+});
+
+// Alternative signin route that doesn't redirect
+app.post("/signin-test", async (req, res) => {
+    console.log("🔐 Test Signin attempt:", req.body.email);
+    const { email, password } = req.body;
+    if (!email || !password) return res.json({ error: "All fields are required!" });
+
+    try {
+        // Find user by email or username
+        const user = await UserModel.findOne({ 
+            $or: [{ email }, { username: email }] 
+        });
+        
+        if (!user || !(await bcrypt.compare(password, user.password))) {
+            console.log("❌ Invalid credentials for:", email);
+            return res.json({ error: "Invalid email/username or password!" });
+        }
+        
+        console.log("🔑 Creating JWT token for user:", user.email);
+        const token = jwt.sign({ 
+            id: user._id, 
+            email: user.email, 
+            username: user.username 
+        }, JWT_SECRET, { expiresIn: "1h" });
+        
+        console.log("🍪 Setting cookie with token:", token.substring(0, 20) + "...");
+        
+        // Set cookie with proper options
+        res.cookie("token", token, { 
+            httpOnly: true, 
+            secure: false,
+            sameSite: 'lax',
+            maxAge: 3600000,
+            path: '/'
+        });
+
+        console.log("✅ User Signed In:", user.email);
+        console.log("🍪 Cookie set, sending JSON response");
+        
+        // Send JSON response instead of redirect
+        res.json({ 
+            success: true, 
+            message: "Signin successful",
+            user: { email: user.email, username: user.username },
+            redirectUrl: "/signin-success"
+        });
+    } catch (error) {
+        console.error("❌ Error signing in:", error);
+        res.json({ error: "Error signing in!" });
+    }
+});
+
+// Simple signin test without redirect
+app.get("/test-signin-simple", (req, res) => {
+    res.send(`
+        <h1>Simple Signin Test</h1>
+        <form action="/test-signin-simple" method="POST">
+            <input type="email" name="email" placeholder="Email" required><br><br>
+            <input type="password" name="password" placeholder="Password" required><br><br>
+            <button type="submit">Sign In</button>
+        </form>
+    `);
+});
+
+app.post("/test-signin-simple", async (req, res) => {
+    console.log("🧪 Simple signin test for:", req.body.email);
+    const { email, password } = req.body;
+    
+    if (!email || !password) {
+        return res.send("Missing email or password");
+    }
+
+    try {
+        const user = await UserModel.findOne({ 
+            $or: [{ email }, { username: email }] 
+        });
+        
+        if (!user || !(await bcrypt.compare(password, user.password))) {
+            return res.send("Invalid credentials");
         }
         
         const token = jwt.sign({ 
@@ -160,19 +317,25 @@ app.post("/signin", async (req, res) => {
             username: user.username 
         }, JWT_SECRET, { expiresIn: "1h" });
         
-        // Set cookie with proper options
+        console.log("🍪 Setting cookie in simple test...");
         res.cookie("token", token, { 
             httpOnly: true, 
-            secure: false, // Set to true in production with HTTPS
+            secure: false,
             sameSite: 'lax',
-            maxAge: 3600000 // 1 hour
+            maxAge: 3600000,
+            path: '/'
         });
 
-        console.log("✅ User Signed In:", user.email);
-        res.redirect("/scan");
+        console.log("✅ Cookie set, sending response");
+        res.send(`
+            <h1>✅ Simple Signin Successful!</h1>
+            <p>User: ${user.email}</p>
+            <p><a href="/test-cookies">Check Cookies</a></p>
+            <p><a href="/signin-success">Test Authentication Page</a></p>
+        `);
     } catch (error) {
-        console.error("❌ Error signing in:", error);
-        res.render("signin", { error: "Error signing in!" });
+        console.error("❌ Simple signin error:", error);
+        res.send("Error during signin");
     }
 });
 
@@ -180,10 +343,90 @@ app.get("/logout", (req, res) => {
     res.clearCookie("token", {
         httpOnly: true,
         secure: false, // Set to true in production with HTTPS
-        sameSite: 'lax'
+        sameSite: 'lax',
+        path: '/'
     });
     console.log("✅ User logged out");
     res.redirect("/signin");
+});
+
+// Test route to check cookies
+app.get("/test-cookies", (req, res) => {
+    console.log("🍪 Test - All cookies:", req.cookies);
+    console.log("🍪 Test - Token cookie:", req.cookies.token || "NOT FOUND");
+    res.json({
+        cookies: req.cookies,
+        token: req.cookies.token || "NOT FOUND",
+        headers: req.headers.cookie || "No cookie header"
+    });
+});
+
+// Test route to manually set a cookie
+app.get("/test-set-cookie", (req, res) => {
+    console.log("🧪 Setting test cookie...");
+    res.cookie("testCookie", "testValue", {
+        httpOnly: false, // Make it accessible via JavaScript for testing
+        secure: false,
+        sameSite: 'lax',
+        maxAge: 3600000,
+        path: '/'
+    });
+    res.send(`
+        <h1>Test Cookie Set</h1>
+        <p>A test cookie has been set. <a href="/test-cookies">Check cookies</a></p>
+        <script>
+            console.log('Document cookies:', document.cookie);
+        </script>
+    `);
+});
+
+// Test route to set httpOnly cookie like JWT
+app.get("/test-set-httponly-cookie", (req, res) => {
+    console.log("🧪 Setting httpOnly test cookie...");
+    res.cookie("testHttpOnly", "httpOnlyValue", {
+        httpOnly: true, // Same as JWT token
+        secure: false,
+        sameSite: 'lax',
+        maxAge: 3600000,
+        path: '/'
+    });
+    res.send(`
+        <h1>HttpOnly Test Cookie Set</h1>
+        <p>An httpOnly test cookie has been set. <a href="/test-cookies">Check cookies</a></p>
+        <p>You won't see this cookie in document.cookie because it's httpOnly</p>
+        <script>
+            console.log('Document cookies (httpOnly will not appear):', document.cookie);
+        </script>
+    `);
+});
+
+// Test route to set a JWT token cookie
+app.get("/test-set-jwt-cookie", (req, res) => {
+    console.log("🧪 Setting JWT token cookie...");
+    
+    // Create a test JWT token
+    const testToken = jwt.sign({ 
+        id: "test123", 
+        email: "test@example.com", 
+        username: "testuser" 
+    }, JWT_SECRET, { expiresIn: "1h" });
+    
+    console.log("🍪 Test JWT token created:", testToken.substring(0, 20) + "...");
+    
+    res.cookie("token", testToken, {
+        httpOnly: true,
+        secure: false,
+        sameSite: 'lax',
+        maxAge: 3600000,
+        path: '/'
+    });
+    
+    res.send(`
+        <h1>JWT Token Cookie Set</h1>
+        <p>A JWT token cookie has been set. <a href="/test-cookies">Check cookies</a></p>
+        <p>Token preview: ${testToken.substring(0, 50)}...</p>
+        <p><a href="/signin-success">Test Authentication</a></p>
+    `);
 });
 
 app.post("/generate", async (req, res) => {
